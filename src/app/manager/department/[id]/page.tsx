@@ -33,30 +33,30 @@ export default async function DepartmentPage({
   return (
     <AppShell role={session.role} name={user.name}>
       <section className="sa-card p-5">
-        <h1 className="text-3xl font-bold">РћС‚РґРµР» {department.name}</h1>
+        <h1 className="text-3xl font-bold">Отдел {department.name}</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Р”РµС‚Р°Р№Р»РµРЅ РїСЂРµРіР»РµРґ РЅР° СЂРёСЃРєР°, РєР»СЋС‡РѕРІРёС‚Рµ РіСЂРµС€РєРё Рё РїСЂРµРїРѕСЂСЉС‡Р°РЅРё РґРµР№СЃС‚РІРёСЏ Р·Р° РµРєРёРїР°.
+          Детайлен преглед на риска, ключовите грешки и препоръчани действия за екипа.
         </p>
       </section>
 
       <section className="mt-4 grid gap-4 md:grid-cols-3">
         <article className="sa-card p-5">
-          <p className="text-sm text-zinc-500">Р РёСЃРє РёРЅРґРµРєСЃ РЅР° РѕС‚РґРµР»Р°</p>
+          <p className="text-sm text-zinc-500">Риск индекс на отдела</p>
           <h2 className="mt-2 text-4xl font-bold">{metrics.orgRiskScore}/100</h2>
         </article>
         <article className="sa-card p-5">
-          <p className="text-sm text-zinc-500">РљР»РёРє СЂРёСЃРє</p>
+          <p className="text-sm text-zinc-500">Клик риск</p>
           <h2 className="mt-2 text-4xl font-bold">{metrics.clickRate}%</h2>
         </article>
         <article className="sa-card p-5">
-          <p className="text-sm text-zinc-500">РџСЂРѕС†РµРЅС‚ РґРѕРєР»Р°РґРІР°РЅРµ</p>
+          <p className="text-sm text-zinc-500">Процент докладване</p>
           <h2 className="mt-2 text-4xl font-bold">{metrics.reportRate}%</h2>
         </article>
       </section>
 
       <section className="sa-card mt-4 p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-xl font-bold">Р РёСЃРє РёР·РіР»РµРґ РЅР° РµРєРёРїР°</h3>
+          <h3 className="text-xl font-bold">Риск изглед на екипа</h3>
           <RecomputeButton />
         </div>
         <div className="space-y-2">
@@ -78,7 +78,7 @@ export default async function DepartmentPage({
                     <span>Р :{latest.reactionRiskScore}%</span>
                   </div>
                 ) : (
-                  <span className="text-sm text-zinc-500">РќСЏРјР° РѕРїРёС‚Рё</span>
+                  <span className="text-sm text-zinc-500">Няма опити</span>
                 )}
               </div>
             );
@@ -88,7 +88,7 @@ export default async function DepartmentPage({
 
       <section className="mt-4 grid gap-4 md:grid-cols-2">
         <article className="sa-card p-5">
-          <h3 className="text-xl font-bold">РќР°Р№-С‡РµСЃС‚Рё РіСЂРµС€РєРё</h3>
+          <h3 className="text-xl font-bold">Най-чести грешки</h3>
           <ul className="mt-3 space-y-2 text-sm">
             {metrics.commonMistakes.map((mistake) => (
               <li
@@ -102,15 +102,14 @@ export default async function DepartmentPage({
           </ul>
         </article>
         <article className="sa-card p-5">
-          <h3 className="text-xl font-bold">РџСЂРµРїРѕСЂСЉС‡Р°РЅРё РґРµР№СЃС‚РІРёСЏ</h3>
+          <h3 className="text-xl font-bold">Препоръчани действия</h3>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-zinc-700">
-            <li>РќР°Р·РЅР°С‡Рё РјРёРЅРё РјРѕРґСѓР» Р·Р° С„РёС€РёРЅРі РЅР° СЃР»СѓР¶РёС‚РµР»Рё СЃ РІРёСЃРѕРє СЂРёСЃРє.</li>
-            <li>РџСѓСЃРЅРё URL СЂР°Р·РїРѕР·РЅР°РІР°РЅРµ Р·Р° С†РµР»РёСЏ РѕС‚РґРµР».</li>
-            <li>РЎР»РµРґРё СЃРµРґРјРёС‡РЅРѕ РґРѕРєР»Р°РґРІР°РЅРµС‚Рѕ Рё С†РµР»С‚Р° РґР° Рµ РЅР°Рґ 70%.</li>
+            <li>Назначи мини модул за фишинг на служители с висок риск.</li>
+            <li>Пусни URL разпознаване за целия отдел.</li>
+            <li>Следи седмично докладването и целта да е над 70%.</li>
           </ul>
         </article>
       </section>
     </AppShell>
   );
 }
-

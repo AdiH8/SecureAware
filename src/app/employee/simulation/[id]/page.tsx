@@ -23,13 +23,12 @@ export default async function SimulationPage({
   return (
     <AppShell role={session.role} name={user.name}>
       <section className="sa-card mb-4 p-5">
-        <h1 className="text-3xl font-bold">Р’СЂРµРјРµРІР° СЃРёРјСѓР»Р°С†РёСЏ</h1>
+        <h1 className="text-3xl font-bold">Времева симулация</h1>
         <p className="mt-2 text-zinc-700">
-          РўРѕРІР° Рµ РґРѕРїСЉР»РЅРёС‚РµР»РЅР° СЃРёРјСѓР»Р°С†РёСЏ РїРѕРґ РЅР°С‚РёСЃРє Рё Рµ РѕС‚РґРµР»РЅР° РѕС‚ РѕСЃРЅРѕРІРЅРёСЏ СѓС‡РµР±РµРЅ С‚РµСЃС‚.
+          Това е допълнителна симулация под натиск и е отделна от основния учебен тест.
         </p>
       </section>
       <ScenarioRunner scenario={scenario} options={getOptionsByScenarioId(scenario.id)} timed />
     </AppShell>
   );
 }
-

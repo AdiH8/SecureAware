@@ -18,57 +18,57 @@ export default async function EmployeeHomePage() {
   return (
     <AppShell role={session.role} name={user.name}>
       <section className="sa-card p-5">
-        <h1 className="text-3xl font-bold">РњРѕРµС‚Рѕ РѕР±СѓС‡РµРЅРёРµ</h1>
+        <h1 className="text-3xl font-bold">Моето обучение</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          РџСЂРµРјРёРЅРё РѕР±СѓС‡РµРЅРёРµ (РІРёРґРµРѕ РёР»Рё С‚РµРєСЃС‚), СЃР»РµРґ С‚РѕРІР° СѓСЃРїРµС€РЅРѕ СЂРµС€Рё С‚РµСЃС‚Р° РѕС‚ 10 РІСЉРїСЂРѕСЃР°.
+          Премини обучение (видео или текст), след това успешно реши теста от 10 въпроса.
         </p>
       </section>
 
       <section className="mt-4 grid gap-4 md:grid-cols-3">
         <article className="sa-card p-5 md:col-span-2">
-          <h2 className="text-xl font-bold">РЎР»РµРґРІР°С‰Рѕ РѕР±СѓС‡РµРЅРёРµ</h2>
+          <h2 className="text-xl font-bold">Следващо обучение</h2>
           {learningState.nextModule ? (
             <div className="mt-3 rounded-xl border border-[var(--line)] p-4">
               <p className="text-xs font-semibold uppercase text-zinc-500">
-                {learningState.nextModule.isMini ? "РђРґР°РїС‚РёРІРµРЅ РјРёРЅРё РјРѕРґСѓР»" : "РћСЃРЅРѕРІРµРЅ РјРѕРґСѓР»"}
+                {learningState.nextModule.isMini ? "Адаптивен мини модул" : "Основен модул"}
               </p>
               <p className="mt-1 text-lg font-semibold">{learningState.nextModule.title}</p>
               <p className="mt-1 text-sm text-zinc-600">
-                РЎС‚Р°С‚СѓСЃ:{" "}
+                Статус:{" "}
                 <strong>
                   {learningState.nextModule.status === "READY_FOR_TEST"
-                    ? "Р“РѕС‚РѕРІ Р·Р° С‚РµСЃС‚"
+                    ? "Готов за тест"
                     : learningState.nextModule.status === "COMPLETED"
-                      ? "Р—Р°РІСЉСЂС€РµРЅ"
-                      : "РќРµР·Р°РїРѕС‡РЅР°С‚"}
+                      ? "Завършен"
+                      : "Незапочнат"}
                 </strong>
               </p>
               <Link
                 href={`/employee/training/${learningState.nextModule.moduleId}`}
                 className="mt-3 inline-block rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
               >
-                РћС‚РІРѕСЂРё РѕР±СѓС‡РµРЅРёРµС‚Рѕ
+                Отвори обучението
               </Link>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-zinc-600">Р’СЃРёС‡РєРё РЅР°Р·РЅР°С‡РµРЅРё РјРѕРґСѓР»Рё СЃР° Р·Р°РІСЉСЂС€РµРЅРё.</p>
+            <p className="mt-3 text-sm text-zinc-600">Всички назначени модули са завършени.</p>
           )}
         </article>
 
         <article className="sa-card p-5">
-          <h2 className="text-xl font-bold">РћР±РѕР±С‰РµРЅРёРµ</h2>
+          <h2 className="text-xl font-bold">Обобщение</h2>
           <div className="mt-3 space-y-2 text-sm">
             <p>
-              Р—Р°РІСЉСЂС€РµРЅРё: <strong>{learningState.completedModules.length}</strong>
+              Завършени: <strong>{learningState.completedModules.length}</strong>
             </p>
             <p>
-              РћСЃС‚Р°РІР°С‰Рё:{" "}
+              Оставащи:{" "}
               <strong>
                 {learningState.nextModule ? learningState.remainingModules.length + 1 : 0}
               </strong>
             </p>
             <p>
-              РћР±С‰Рѕ РЅР°Р·РЅР°С‡РµРЅРё: <strong>{learningState.modules.length}</strong>
+              Общо назначени: <strong>{learningState.modules.length}</strong>
             </p>
           </div>
         </article>
@@ -76,46 +76,46 @@ export default async function EmployeeHomePage() {
 
       <section className="mt-4 grid gap-4 md:grid-cols-2">
         <article className="sa-card p-5">
-          <h2 className="text-xl font-bold">РћСЃС‚Р°РІР°С‰Рё РѕР±СѓС‡РµРЅРёСЏ</h2>
+          <h2 className="text-xl font-bold">Оставащи обучения</h2>
           <div className="mt-3 space-y-2">
             {learningState.remainingModules.length ? (
               learningState.remainingModules.map((module) => (
                 <div key={module.moduleId} className="rounded-xl border border-[var(--line)] p-3">
                   <p className="font-semibold">{module.title}</p>
                   <p className="text-xs text-zinc-500">
-                    {module.isMini ? "РњРёРЅРё РјРѕРґСѓР»" : "РћСЃРЅРѕРІРµРЅ РјРѕРґСѓР»"}
+                    {module.isMini ? "Мини модул" : "Основен модул"}
                   </p>
                   <Link
                     className="sa-link mt-2 inline-block text-sm"
                     href={`/employee/training/${module.moduleId}`}
                   >
-                    РћС‚РІРѕСЂРё
+                    Отвори
                   </Link>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-zinc-600">РќСЏРјР° РѕСЃС‚Р°РІР°С‰Рё РјРѕРґСѓР»Рё.</p>
+              <p className="text-sm text-zinc-600">Няма оставащи модули.</p>
             )}
           </div>
         </article>
 
         <article className="sa-card p-5">
-          <h2 className="text-xl font-bold">Р—Р°РІСЉСЂС€РµРЅРё РѕР±СѓС‡РµРЅРёСЏ</h2>
+          <h2 className="text-xl font-bold">Завършени обучения</h2>
           <div className="mt-3 space-y-2">
             {learningState.completedModules.length ? (
               learningState.completedModules.map((module) => (
                 <div key={module.moduleId} className="rounded-xl border border-[var(--line)] p-3">
                   <p className="font-semibold">{module.title}</p>
-                  <p className="text-xs text-emerald-700">Р—Р°РІСЉСЂС€РµРЅ РјРѕРґСѓР»</p>
+                  <p className="text-xs text-emerald-700">Завършен модул</p>
                   {typeof module.lastScorePercent === "number" ? (
                     <p className="text-xs text-zinc-500">
-                      РџРѕСЃР»РµРґРµРЅ СЂРµР·СѓР»С‚Р°С‚: {module.lastScorePercent}%
+                      Последен резултат: {module.lastScorePercent}%
                     </p>
                   ) : null}
                 </div>
               ))
             ) : (
-              <p className="text-sm text-zinc-600">Р’СЃРµ РѕС‰Рµ РЅСЏРјР° Р·Р°РІСЉСЂС€РµРЅРё РјРѕРґСѓР»Рё.</p>
+              <p className="text-sm text-zinc-600">Все още няма завършени модули.</p>
             )}
           </div>
         </article>
@@ -123,4 +123,3 @@ export default async function EmployeeHomePage() {
     </AppShell>
   );
 }
-
