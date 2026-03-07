@@ -1,26 +1,135 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3f4ef;
+  --foreground: #16211d;
+  --surface: #ffffff;
+  --line: #d8d7d2;
+  --brand: #0f766e;
+  --brand-ink: #083d38;
+  --accent: #b45309;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --ok: #15803d;
+  --landing-glow-a: #dff4ee;
+  --landing-glow-b: #fff4da;
+  --landing-glow-c: #dbeafe;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-display);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 9% 12%, #fff6d8 0%, transparent 26%),
+    radial-gradient(circle at 92% 8%, #d7efed 0%, transparent 30%);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+}
+
+.sa-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.sa-tag {
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sa-tag-high {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+.sa-tag-med {
+  background: #ffedd5;
+  color: var(--warning);
+}
+
+.sa-tag-secure {
+  background: #dcfce7;
+  color: var(--ok);
+}
+
+.sa-gradient {
+  background: linear-gradient(125deg, #0f766e 0%, #164e63 56%, #854d0e 100%);
+}
+
+.sa-link {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.sa-link:hover {
+  color: var(--brand-ink);
+}
+
+.sa-landing {
+  background-image:
+    radial-gradient(circle at 8% 8%, var(--landing-glow-b) 0%, transparent 26%),
+    radial-gradient(circle at 92% 14%, var(--landing-glow-a) 0%, transparent 30%),
+    radial-gradient(circle at 50% 85%, var(--landing-glow-c) 0%, transparent 28%);
+}
+
+.sa-top-nav {
+  box-shadow: 0 8px 24px rgba(8, 61, 56, 0.06);
+}
+
+.sa-card-premium {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 249, 247, 0.98) 100%);
+  box-shadow: 0 14px 34px rgba(8, 61, 56, 0.08);
+}
+
+.sa-hover-lift {
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
+}
+
+.sa-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 28px rgba(8, 61, 56, 0.12);
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--line));
+}
+
+.sa-reveal {
+  animation: sa-fade-up 620ms ease both;
+}
+
+@keyframes sa-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sa-reveal,
+  .sa-hover-lift {
+    animation: none;
+    transition: none;
+  }
 }

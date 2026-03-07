@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" fill="none">
+  <rect width="960" height="540" fill="#F1F5F9"/>
+  <rect x="130" y="65" width="700" height="410" rx="18" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <rect x="260" y="150" width="440" height="240" rx="14" fill="#FEF2F2" stroke="#FCA5A5"/>
+  <circle cx="480" cy="206" r="24" fill="#DC2626"/>
+  <text x="480" y="214" text-anchor="middle" font-size="24" fill="#FFFFFF" font-family="Arial, sans-serif">!</text>
+  <text x="480" y="252" text-anchor="middle" font-size="24" fill="#991B1B" font-family="Arial, sans-serif">SECURITY ALERT</text>
+  <text x="480" y="284" text-anchor="middle" font-size="16" fill="#7F1D1D" font-family="Arial, sans-serif">Your device is infected. Call support now.</text>
+  <rect x="342" y="314" width="276" height="44" rx="8" fill="#DC2626"/>
+  <text x="480" y="341" text-anchor="middle" font-size="16" fill="#FFFFFF" font-family="Arial, sans-serif">Download Cleanup Tool</text>
+</svg>

@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SecureAware Advanced Demo v2
 
-## Getting Started
+Full-stack demo платформа за обучение по киберсигурност с:
+- role-based UX (`EMPLOYEE`, `MANAGER`, `ADMIN`)
+- scenario-based testing + timed simulations
+- risk engine (knowledge, reaction risk, behavioral band)
+- adaptive assignment rules
+- manager dashboard с analytics
 
-First, run the development server:
+## Stack
 
-```bash
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Recharts
+- Supabase client (optional, fallback to in-memory store)
+- Vitest unit/integration tests
+
+## Local Start
+
+```powershell
+cd "C:\Users\Adi\Desktop\proekt digitalen\secureaware-v2"
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open: [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` landing
+- `/login` demo role login
+- `/employee/home`
+- `/employee/training/mod_phishing_core`
+- `/employee/simulation/scn_phishing_invoice`
+- `/manager/dashboard`
+- `/manager/department/dept_sales`
+- `/admin/content`
 
-## Learn More
+## API Endpoints
 
-To learn more about Next.js, take a look at the following resources:
+- `POST /api/attempts`
+- `GET /api/dashboard?departmentId=&range=`
+- `POST /api/assignments/recompute`
+- `POST /api/learning/complete-content`
+- `POST /api/tests/start`
+- `POST /api/tests/answer`
+- `POST /api/tests/finish`
+- `GET /api/employee/learning-state`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Test Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+npm run test
+npm run test:coverage
+npm run lint
+```
 
-## Deploy on Vercel
+## Supabase Setup (Optional)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Create `.env.local` from `.env.example`
+2. Add keys:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+3. Run SQL files in Supabase SQL editor:
+   - `supabase/schema.sql`
+   - `supabase/seed.sql`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If env vars are missing, app runs with seeded in-memory data.
+
+## Netlify Deploy
+
+1. Push project to Git repo
+2. Create new site in Netlify from repo
+3. Build command: `npm run build`
+4. Publish dir: `.next`
+5. Add env vars from `.env.example`
+
+`netlify.toml` is included with `@netlify/plugin-nextjs`.

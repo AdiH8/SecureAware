@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" fill="none">
+  <rect width="960" height="540" fill="#F3F4F6"/>
+  <rect x="110" y="40" width="740" height="460" rx="16" fill="#FFFFFF" stroke="#D1D5DB"/>
+  <rect x="130" y="60" width="700" height="28" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <rect x="145" y="68" width="350" height="12" rx="6" fill="#FCA5A5"/>
+  <text x="146" y="77" font-size="11" fill="#991B1B" font-family="Arial, sans-serif">https://mybank-secure-login.verify-account.co</text>
+  <rect x="280" y="140" width="400" height="280" rx="14" fill="#F8FAFC" stroke="#E5E7EB"/>
+  <rect x="320" y="188" width="320" height="42" rx="8" fill="#FFFFFF" stroke="#D1D5DB"/>
+  <rect x="320" y="246" width="320" height="42" rx="8" fill="#FFFFFF" stroke="#D1D5DB"/>
+  <rect x="320" y="308" width="320" height="42" rx="8" fill="#0F766E"/>
+  <text x="460" y="333" text-anchor="middle" font-size="16" fill="#FFFFFF" font-family="Arial, sans-serif">Sign In</text>
+  <text x="480" y="170" text-anchor="middle" font-size="20" fill="#111827" font-family="Arial, sans-serif">Bank Login</text>
+</svg>
