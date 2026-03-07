@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth";
 import {
   getLearningProgressForModule,
   getModuleById,
-  getUserById,
+  getUserByIdResolved,
   listModulesForEmployee,
   listTestQuestionsForModule,
 } from "@/lib/data/store";
@@ -19,7 +19,7 @@ export default async function EmployeeTrainingPage({
   params: Promise<{ moduleId: string }>;
 }) {
   const session = await requireSession(["EMPLOYEE"]);
-  const user = getUserById(session.userId);
+  const user = await getUserByIdResolved(session.userId);
   const { moduleId } = await params;
   if (!user) {
     return null;
@@ -63,3 +63,4 @@ export default async function EmployeeTrainingPage({
     </AppShell>
   );
 }
+

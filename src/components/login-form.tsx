@@ -72,6 +72,11 @@ export function LoginForm({
           ))}
         </select>
       </label>
+      {roleUsers.length === 0 ? (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Няма активни потребители за избраната роля. Провери данните в Supabase таблицата `profiles`.
+        </p>
+      ) : null}
 
       {error ? <p className="mt-3 text-sm font-medium text-red-600">{error}</p> : null}
 

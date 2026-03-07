@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { LoginForm } from "@/components/login-form";
-import { listDemoUsersByRole } from "@/lib/data/store";
+import { listDemoUsersByRoleResolved } from "@/lib/data/store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function LoginPage({
   searchParams: Promise<{ redirect?: string; error?: string }>;
 }) {
   const { redirect, error } = await searchParams;
-  const users = listDemoUsersByRole();
+  const users = await listDemoUsersByRoleResolved();
 
   return (
     <div className="min-h-screen">

@@ -170,6 +170,41 @@ export function getLatestAttemptForUser(userId: string): Attempt | undefined {
   return getLatestAttemptByUser(userId);
 }
 
+function upsertProfileInState(profile: Profile): Profile {
+  const state = ensureState();
+  const existingIndex = state.profiles.findIndex((item) => item.id === profile.id);
+  if (existingIndex >= 0) {
+    state.profiles[existingIndex] = profile;
+  } else {
+    state.profiles.push(profile);
+  }
+  return profile;
+}
+
+function mapProfileRow(row: {
+  id: string;
+  organization_id: string;
+  department_id: string;
+  name: string;
+  email: string;
+  role: string;
+  is_archived: boolean;
+  archived_at: string | null;
+  updated_at: string;
+}): Profile {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    departmentId: row.department_id,
+    name: row.name,
+    email: row.email,
+    role: row.role as Profile["role"],
+    isArchived: row.is_archived,
+    archivedAt: row.archived_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function listDemoUsersByRole(role?: Profile["role"]): Profile[] {
   const state = ensureState();
   const users = state.profiles.filter(isActive);
@@ -179,9 +214,60 @@ export function listDemoUsersByRole(role?: Profile["role"]): Profile[] {
   return users.filter((user) => user.role === role);
 }
 
+export async function listDemoUsersByRoleResolved(role?: Profile["role"]): Promise<Profile[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return listDemoUsersByRole(role);
+  }
+
+  let query = supabase
+    .from("profiles")
+    .select("id, organization_id, department_id, name, email, role, is_archived, archived_at, updated_at")
+    .eq("is_archived", false)
+    .order("name", { ascending: true });
+  if (role) {
+    query = query.eq("role", role);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[users] Supabase query failed in listDemoUsersByRoleResolved:", error.message);
+    return [];
+  }
+  if (!data) {
+    return [];
+  }
+
+  const mapped = data.map(mapProfileRow);
+  mapped.forEach(upsertProfileInState);
+  return mapped;
+}
+
 export function getUserById(userId: string): Profile | undefined {
   const state = ensureState();
   return state.profiles.find((profile) => profile.id === userId);
+}
+
+export async function getUserByIdResolved(userId: string): Promise<Profile | undefined> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return getUserById(userId);
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, organization_id, department_id, name, email, role, is_archived, archived_at, updated_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("[users] Supabase query failed in getUserByIdResolved:", error.message);
+    return undefined;
+  }
+  if (!data) {
+    return undefined;
+  }
+
+  return upsertProfileInState(mapProfileRow(data));
 }
 
 export function listDepartments(): Department[] {
@@ -503,7 +589,7 @@ export async function recordAttempt(params: {
   explanation: string;
 }> {
   const state = ensureState();
-  const user = getUserById(params.actorUserId);
+  const user = await getUserByIdResolved(params.actorUserId);
   if (!user) {
     throw new Error("Потребителят не е намерен");
   }

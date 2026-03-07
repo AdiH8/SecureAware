@@ -1,14 +1,15 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
 import { AUTH_COOKIES } from "@/lib/auth";
-import { getUserById } from "@/lib/data/store";
+import { getUserByIdResolved } from "@/lib/data/store";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as { userId?: string; redirect?: string };
   if (!body.userId) {
     return NextResponse.json({ error: "Липсва идентификатор на потребител" }, { status: 400 });
   }
-  const user = getUserById(body.userId);
+
+  const user = await getUserByIdResolved(body.userId);
   if (!user) {
     return NextResponse.json({ error: "Потребителят не е намерен" }, { status: 404 });
   }
