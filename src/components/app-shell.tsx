@@ -14,7 +14,6 @@ function linksForRole(role: Role): Array<{ href: string; label: string }> {
   if (role === "EMPLOYEE") {
     return [
       { href: "/employee/home", label: uiCopy.nav.employeeHome },
-      { href: "/employee/simulation/scn_phishing_invoice", label: uiCopy.nav.employeeSimulation },
     ];
   }
   if (role === "MANAGER") {

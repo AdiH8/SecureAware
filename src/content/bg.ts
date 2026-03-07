@@ -4,7 +4,6 @@ export const uiCopy: UiCopy = {
   appName: "SecureAware",
   nav: {
     employeeHome: "Моето обучение",
-    employeeSimulation: "Симулация",
     managerDashboard: "Табло",
     managerSales: "Отдел Продажби",
     managerFinance: "Отдел Финанси",

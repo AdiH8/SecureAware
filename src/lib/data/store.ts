@@ -1,6 +1,10 @@
 import { buildFollowUpAssignment, shouldTriggerRule } from "@/lib/adaptive";
 import { createSeedState, SeedState } from "@/lib/data/seed";
 import { isSelectedAnswerCorrect, isTestUnlocked, evaluateTestScore } from "@/lib/learning";
+import {
+  buildMockCampaignMetrics,
+  startCampaignLifecycle,
+} from "@/lib/phishing-campaign-engine";
 import { computeAttemptResult } from "@/lib/risk-engine";
 import {
   MODULE_TEXT_SECTION_MIN_LENGTH,
@@ -8,6 +12,7 @@ import {
 } from "@/lib/module-schemas";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import {
+  AdminPhishingCampaignInput,
   AdminModuleInput,
   AdminOptionInput,
   AdminQuestionInput,
@@ -29,6 +34,9 @@ import {
   HistoryEntry,
   LearningMode,
   LearningProgress,
+  PhishingCampaign,
+  PhishingCampaignStatus,
+  PhishingTemplate,
   Profile,
   Scenario,
   ScenarioOption,
@@ -929,6 +937,331 @@ function refreshModuleQuestionIds(moduleId: string): void {
     .sort((a, b) => a.order - b.order)
     .map((question) => question.id);
   trainingModule.updatedAt = nowIso();
+}
+
+function normalizeCampaignStatus(value: string): PhishingCampaignStatus {
+  if (value === "DRAFT") return "DRAFT";
+  if (value === "QUEUED") return "QUEUED";
+  if (value === "SENT") return "SENT";
+  if (value === "ARCHIVED") return "ARCHIVED";
+  return "COMPLETED";
+}
+
+function upsertPhishingCampaignInState(campaign: PhishingCampaign): void {
+  const state = ensureState();
+  const existingIndex = state.phishingCampaigns.findIndex((item) => item.id === campaign.id);
+  if (existingIndex >= 0) {
+    state.phishingCampaigns[existingIndex] = campaign;
+  } else {
+    state.phishingCampaigns.push(campaign);
+  }
+}
+
+function mapPhishingCampaignRow(row: {
+  id: string;
+  organization_id: string;
+  department_id: string;
+  name: string;
+  template_id: string;
+  subject: string;
+  sender_name: string;
+  content: string;
+  status: string;
+  sent_count: number;
+  opened_count: number;
+  clicked_count: number;
+  reported_count: number;
+  click_rate: number;
+  report_rate: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  is_archived: boolean;
+  archived_at: string | null;
+  updated_at: string;
+}): PhishingCampaign {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    departmentId: row.department_id,
+    name: row.name,
+    templateId: row.template_id,
+    subject: row.subject,
+    senderName: row.sender_name,
+    content: row.content,
+    status: normalizeCampaignStatus(row.status),
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    isArchived: row.is_archived,
+    archivedAt: row.archived_at,
+    updatedAt: row.updated_at,
+    metrics: {
+      sentCount: row.sent_count ?? 0,
+      openedCount: row.opened_count ?? 0,
+      clickedCount: row.clicked_count ?? 0,
+      reportedCount: row.reported_count ?? 0,
+      clickRate: row.click_rate ?? 0,
+      reportRate: row.report_rate ?? 0,
+    },
+  };
+}
+
+function listActiveEmployeesByDepartmentFromState(departmentId: string): Profile[] {
+  const state = ensureState();
+  return state.profiles.filter(
+    (profile) =>
+      profile.departmentId === departmentId &&
+      profile.role === "EMPLOYEE" &&
+      isActive(profile)
+  );
+}
+
+async function listActiveEmployeesByDepartmentResolved(departmentId: string): Promise<Profile[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return listActiveEmployeesByDepartmentFromState(departmentId);
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, organization_id, department_id, name, email, role, is_archived, archived_at, updated_at")
+    .eq("department_id", departmentId)
+    .eq("role", "EMPLOYEE")
+    .eq("is_archived", false);
+  if (error || !data) {
+    return listActiveEmployeesByDepartmentFromState(departmentId);
+  }
+
+  return data.map(mapProfileRow);
+}
+
+function applyCampaignStart(campaign: PhishingCampaign, recipientCount: number): PhishingCampaign {
+  const now = nowIso();
+  const lifecycle = startCampaignLifecycle();
+  let status: PhishingCampaignStatus = campaign.status;
+  lifecycle.forEach((nextStatus) => {
+    status = nextStatus;
+  });
+
+  const metrics = buildMockCampaignMetrics({
+    campaignId: campaign.id,
+    recipientCount,
+  });
+
+  campaign.status = status;
+  campaign.startedAt = now;
+  campaign.completedAt = now;
+  campaign.metrics = metrics;
+  campaign.updatedAt = now;
+  return campaign;
+}
+
+export function listPhishingTemplates(): PhishingTemplate[] {
+  const state = ensureState();
+  return state.phishingTemplates;
+}
+
+export async function listAdminPhishingCampaigns(): Promise<PhishingCampaign[]> {
+  const state = ensureState();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return [...state.phishingCampaigns].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("phishing_campaigns")
+    .select(
+      "id, organization_id, department_id, name, template_id, subject, sender_name, content, status, sent_count, opened_count, clicked_count, reported_count, click_rate, report_rate, started_at, completed_at, created_at, is_archived, archived_at, updated_at"
+    )
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [...state.phishingCampaigns].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
+  }
+
+  const campaigns = data.map(mapPhishingCampaignRow);
+  campaigns.forEach(upsertPhishingCampaignInState);
+  return campaigns;
+}
+
+export async function createAdminPhishingCampaign(
+  input: AdminPhishingCampaignInput
+): Promise<PhishingCampaign> {
+  const state = ensureState();
+  if (!state.departments.some((department) => department.id === input.departmentId)) {
+    throw new Error("Невалиден отдел.");
+  }
+  if (!state.phishingTemplates.some((template) => template.id === input.templateId)) {
+    throw new Error("Невалиден шаблон.");
+  }
+
+  const created: PhishingCampaign = {
+    id: nextId("phc"),
+    organizationId: state.organization.id,
+    departmentId: input.departmentId,
+    name: input.name.trim(),
+    templateId: input.templateId,
+    subject: input.subject.trim(),
+    senderName: input.senderName.trim(),
+    content: input.content.trim(),
+    status: "DRAFT",
+    startedAt: null,
+    completedAt: null,
+    createdAt: nowIso(),
+    isArchived: false,
+    archivedAt: null,
+    updatedAt: nowIso(),
+    metrics: {
+      sentCount: 0,
+      openedCount: 0,
+      clickedCount: 0,
+      reportedCount: 0,
+      clickRate: 0,
+      reportRate: 0,
+    },
+  };
+
+  state.phishingCampaigns.push(created);
+
+  await withSupabaseWrite(async (supabase) => {
+    await supabase.from("phishing_campaigns").upsert({
+      id: created.id,
+      organization_id: created.organizationId,
+      department_id: created.departmentId,
+      name: created.name,
+      template_id: created.templateId,
+      subject: created.subject,
+      sender_name: created.senderName,
+      content: created.content,
+      status: created.status,
+      sent_count: created.metrics.sentCount,
+      opened_count: created.metrics.openedCount,
+      clicked_count: created.metrics.clickedCount,
+      reported_count: created.metrics.reportedCount,
+      click_rate: created.metrics.clickRate,
+      report_rate: created.metrics.reportRate,
+      started_at: created.startedAt,
+      completed_at: created.completedAt,
+      created_at: created.createdAt,
+      is_archived: created.isArchived,
+      archived_at: created.archivedAt,
+      updated_at: created.updatedAt,
+    });
+  });
+
+  return created;
+}
+
+export async function updateAdminPhishingCampaign(
+  campaignId: string,
+  patch: Partial<AdminPhishingCampaignInput>
+): Promise<PhishingCampaign> {
+  const state = ensureState();
+  const campaign = state.phishingCampaigns.find((item) => item.id === campaignId);
+  if (!campaign) {
+    throw new Error("Кампанията не е намерена.");
+  }
+  if (campaign.isArchived || campaign.status === "ARCHIVED") {
+    throw new Error("Архивирана кампания не може да се редактира.");
+  }
+  if (patch.departmentId && !state.departments.some((department) => department.id === patch.departmentId)) {
+    throw new Error("Невалиден отдел.");
+  }
+  if (patch.templateId && !state.phishingTemplates.some((template) => template.id === patch.templateId)) {
+    throw new Error("Невалиден шаблон.");
+  }
+
+  if (patch.name !== undefined) campaign.name = patch.name.trim();
+  if (patch.templateId !== undefined) campaign.templateId = patch.templateId;
+  if (patch.subject !== undefined) campaign.subject = patch.subject.trim();
+  if (patch.senderName !== undefined) campaign.senderName = patch.senderName.trim();
+  if (patch.content !== undefined) campaign.content = patch.content.trim();
+  if (patch.departmentId !== undefined) campaign.departmentId = patch.departmentId;
+  campaign.updatedAt = nowIso();
+
+  await withSupabaseWrite(async (supabase) => {
+    await supabase
+      .from("phishing_campaigns")
+      .update({
+        department_id: campaign.departmentId,
+        name: campaign.name,
+        template_id: campaign.templateId,
+        subject: campaign.subject,
+        sender_name: campaign.senderName,
+        content: campaign.content,
+        updated_at: campaign.updatedAt,
+      })
+      .eq("id", campaign.id);
+  });
+
+  return campaign;
+}
+
+export async function setAdminPhishingCampaignArchived(
+  campaignId: string,
+  isArchived: boolean
+): Promise<PhishingCampaign> {
+  const state = ensureState();
+  const campaign = state.phishingCampaigns.find((item) => item.id === campaignId);
+  if (!campaign) {
+    throw new Error("Кампанията не е намерена.");
+  }
+
+  Object.assign(campaign, archiveState(isArchived));
+  campaign.status = isArchived ? "ARCHIVED" : "DRAFT";
+
+  await withSupabaseWrite(async (supabase) => {
+    await supabase
+      .from("phishing_campaigns")
+      .update({
+        status: campaign.status,
+        is_archived: campaign.isArchived,
+        archived_at: campaign.archivedAt,
+        updated_at: campaign.updatedAt,
+      })
+      .eq("id", campaign.id);
+  });
+
+  return campaign;
+}
+
+export async function startAdminPhishingCampaign(campaignId: string): Promise<PhishingCampaign> {
+  const state = ensureState();
+  const campaign = state.phishingCampaigns.find((item) => item.id === campaignId);
+  if (!campaign) {
+    throw new Error("Кампанията не е намерена.");
+  }
+  if (campaign.isArchived || campaign.status === "ARCHIVED") {
+    throw new Error("Архивирана кампания не може да бъде стартирана.");
+  }
+
+  const recipients = await listActiveEmployeesByDepartmentResolved(campaign.departmentId);
+  applyCampaignStart(campaign, recipients.length);
+
+  await withSupabaseWrite(async (supabase) => {
+    await supabase
+      .from("phishing_campaigns")
+      .update({
+        status: campaign.status,
+        sent_count: campaign.metrics.sentCount,
+        opened_count: campaign.metrics.openedCount,
+        clicked_count: campaign.metrics.clickedCount,
+        reported_count: campaign.metrics.reportedCount,
+        click_rate: campaign.metrics.clickRate,
+        report_rate: campaign.metrics.reportRate,
+        started_at: campaign.startedAt,
+        completed_at: campaign.completedAt,
+        updated_at: campaign.updatedAt,
+      })
+      .eq("id", campaign.id);
+  });
+
+  return campaign;
 }
 
 export function listAdminUsers(): Profile[] {

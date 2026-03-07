@@ -6,6 +6,8 @@ import {
   AssignmentRule,
   Department,
   HistoryEntry,
+  PhishingCampaign,
+  PhishingTemplate,
   Profile,
   Scenario,
   ScenarioOption,
@@ -18,7 +20,7 @@ import {
   MODULE_TEXT_SECTIONS_MIN_COUNT,
 } from "@/lib/module-schemas";
 
-type AdminTab = "users" | "modules" | "tests" | "scenarios" | "rules" | "history";
+type AdminTab = "users" | "modules" | "tests" | "campaigns" | "scenarios" | "rules" | "history";
 
 interface AdminState {
   users: Profile[];
@@ -28,6 +30,8 @@ interface AdminState {
   options: TestOption[];
   scenarios: Scenario[];
   scenarioOptions: ScenarioOption[];
+  campaigns: PhishingCampaign[];
+  phishingTemplates: PhishingTemplate[];
   rules: AssignmentRule[];
   history: HistoryEntry[];
 }
@@ -36,7 +40,7 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: "users", label: "Потребители" },
   { id: "modules", label: "Курсове" },
   { id: "tests", label: "Тестове" },
-  { id: "scenarios", label: "Сценарии" },
+  { id: "campaigns", label: "Фишинг кампании" },
   { id: "rules", label: "Правила" },
   { id: "history", label: "История" },
 ];
@@ -78,6 +82,8 @@ export function AdminControlCenter() {
     options: [],
     scenarios: [],
     scenarioOptions: [],
+    campaigns: [],
+    phishingTemplates: [],
     rules: [],
     history: [],
   });
@@ -158,6 +164,17 @@ export function AdminControlCenter() {
     retestInDays: 14,
   });
 
+  const [campaignForm, setCampaignForm] = useState({
+    id: "",
+    name: "",
+    templateId: "",
+    subject: "",
+    senderName: "",
+    content: "",
+    departmentId: "",
+    startNow: false,
+  });
+
   const modulesById = useMemo(
     () => Object.fromEntries(state.modules.map((module) => [module.id, module.title])),
     [state.modules]
@@ -166,12 +183,25 @@ export function AdminControlCenter() {
     () => Object.fromEntries(state.departments.map((department) => [department.id, department.name])),
     [state.departments]
   );
+  const campaignTotals = useMemo(() => {
+    return state.campaigns.reduce(
+      (acc, campaign) => {
+        if (campaign.isArchived) return acc;
+        acc.sent += campaign.metrics.sentCount;
+        acc.opened += campaign.metrics.openedCount;
+        acc.clicked += campaign.metrics.clickedCount;
+        acc.reported += campaign.metrics.reportedCount;
+        return acc;
+      },
+      { sent: 0, opened: 0, clicked: 0, reported: 0 }
+    );
+  }, [state.campaigns]);
 
   const loadData = async () => {
     setPending(true);
     setError(null);
     try {
-      const [usersRes, modulesRes, questionsRes, optionsRes, scenariosRes, scenarioOptionsRes, rulesRes, historyRes] =
+      const [usersRes, modulesRes, questionsRes, optionsRes, scenariosRes, scenarioOptionsRes, rulesRes, historyRes, campaignsRes] =
         await Promise.all([
           apiRequest<{ users: Profile[]; departments: Department[] }>("/api/admin/users"),
           apiRequest<{ modules: TrainingModule[] }>("/api/admin/modules"),
@@ -181,6 +211,9 @@ export function AdminControlCenter() {
           apiRequest<{ options: ScenarioOption[] }>("/api/admin/scenario-options"),
           apiRequest<{ rules: AssignmentRule[] }>("/api/admin/rules"),
           apiRequest<{ history: HistoryEntry[] }>("/api/admin/history"),
+          apiRequest<{ campaigns: PhishingCampaign[]; templates: PhishingTemplate[] }>(
+            "/api/admin/phishing-campaigns"
+          ),
         ]);
 
       setState({
@@ -191,6 +224,8 @@ export function AdminControlCenter() {
         options: optionsRes.options,
         scenarios: scenariosRes.scenarios,
         scenarioOptions: scenarioOptionsRes.options,
+        campaigns: campaignsRes.campaigns,
+        phishingTemplates: campaignsRes.templates,
         rules: rulesRes.rules,
         history: historyRes.history,
       });
@@ -204,6 +239,11 @@ export function AdminControlCenter() {
         scenarioId: prev.scenarioId || scenariosRes.scenarios[0]?.id || "",
       }));
       setRuleForm((prev) => ({ ...prev, moduleId: prev.moduleId || modulesRes.modules[0]?.id || "" }));
+      setCampaignForm((prev) => ({
+        ...prev,
+        departmentId: prev.departmentId || usersRes.departments[0]?.id || "",
+        templateId: prev.templateId || campaignsRes.templates[0]?.id || "",
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Грешка при зареждане.");
     } finally {
@@ -455,6 +495,68 @@ export function AdminControlCenter() {
     }, scenarioOptionForm.id ? "Опцията е обновена." : "Опцията е добавена.");
   };
 
+  const applyTemplateToCampaignForm = (templateId: string) => {
+    const template = state.phishingTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    setCampaignForm((prev) => ({
+      ...prev,
+      templateId: template.id,
+      subject: template.subject,
+      senderName: template.senderName,
+      content: template.content,
+    }));
+  };
+
+  const submitCampaign = async () => {
+    const payload = {
+      name: campaignForm.name,
+      templateId: campaignForm.templateId,
+      subject: campaignForm.subject,
+      senderName: campaignForm.senderName,
+      content: campaignForm.content,
+      departmentId: campaignForm.departmentId,
+      startNow: campaignForm.startNow,
+    };
+
+    await saveAction(async () => {
+      if (campaignForm.id) {
+        await apiRequest(`/api/admin/phishing-campaigns/${campaignForm.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        if (campaignForm.startNow) {
+          await apiRequest(`/api/admin/phishing-campaigns/${campaignForm.id}/start`, {
+            method: "POST",
+          });
+        }
+      } else {
+        await apiRequest("/api/admin/phishing-campaigns", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+
+      setCampaignForm({
+        id: "",
+        name: "",
+        templateId: state.phishingTemplates[0]?.id ?? "",
+        subject: "",
+        senderName: "",
+        content: "",
+        departmentId: state.departments[0]?.id ?? "",
+        startNow: false,
+      });
+    }, campaignForm.id ? "Кампанията е обновена." : "Кампанията е създадена.");
+  };
+
+  const startCampaign = async (campaignId: string) => {
+    await saveAction(async () => {
+      await apiRequest(`/api/admin/phishing-campaigns/${campaignId}/start`, {
+        method: "POST",
+      });
+    }, "Кампанията е стартирана.");
+  };
+
   const submitRule = async () => {
     const payload = {
       category: ruleForm.category,
@@ -498,7 +600,7 @@ export function AdminControlCenter() {
       <article className="sa-card p-6">
         <h1 className="text-3xl font-bold">Админ Control Center</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Централизирано управление на служители, обучения, тестове, сценарии, правила и история.
+          Централизирано управление на служители, обучения, тестове, фишинг кампании, правила и история.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {tabs.map((tab) => (
@@ -719,6 +821,176 @@ export function AdminControlCenter() {
               ))}
             </div>
           </article>
+        </section>
+      ) : null}
+
+      {activeTab === "campaigns" ? (
+        <section className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
+            <article className="sa-card p-4">
+              <h2 className="text-xl font-bold">
+                {campaignForm.id ? "Редакция кампания" : "Стартиране на кампания"}
+              </h2>
+              <div className="mt-3 space-y-3">
+                <input
+                  className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  placeholder="Име на кампания"
+                  value={campaignForm.name}
+                  onChange={(e) => setCampaignForm((prev) => ({ ...prev, name: e.target.value }))}
+                />
+                <select
+                  className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  value={campaignForm.templateId}
+                  onChange={(e) => applyTemplateToCampaignForm(e.target.value)}
+                >
+                  {state.phishingTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  placeholder="Тема на имейла"
+                  value={campaignForm.subject}
+                  onChange={(e) => setCampaignForm((prev) => ({ ...prev, subject: e.target.value }))}
+                />
+                <input
+                  className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  placeholder="Подател (mock)"
+                  value={campaignForm.senderName}
+                  onChange={(e) => setCampaignForm((prev) => ({ ...prev, senderName: e.target.value }))}
+                />
+                <textarea
+                  className="min-h-28 w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  placeholder="Съдържание на имейла"
+                  value={campaignForm.content}
+                  onChange={(e) => setCampaignForm((prev) => ({ ...prev, content: e.target.value }))}
+                />
+                <select
+                  className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                  value={campaignForm.departmentId}
+                  onChange={(e) => setCampaignForm((prev) => ({ ...prev, departmentId: e.target.value }))}
+                >
+                  {state.departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={campaignForm.startNow}
+                    onChange={(e) =>
+                      setCampaignForm((prev) => ({ ...prev, startNow: e.target.checked }))
+                    }
+                  />
+                  Пускане сега (mock)
+                </label>
+                <button
+                  type="button"
+                  onClick={submitCampaign}
+                  className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  {campaignForm.id ? "Запази кампания" : "Създай кампания"}
+                </button>
+              </div>
+            </article>
+
+            <article className="sa-card p-4">
+              <h2 className="text-xl font-bold">Активни и минали кампании</h2>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-[var(--line)] p-3">
+                  <p className="text-xs uppercase text-zinc-500">Изпратени</p>
+                  <p className="text-2xl font-bold">{campaignTotals.sent}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] p-3">
+                  <p className="text-xs uppercase text-zinc-500">Click rate</p>
+                  <p className="text-2xl font-bold">
+                    {campaignTotals.sent
+                      ? Math.round((campaignTotals.clicked / campaignTotals.sent) * 100)
+                      : 0}
+                    %
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] p-3">
+                  <p className="text-xs uppercase text-zinc-500">Report rate</p>
+                  <p className="text-2xl font-bold">
+                    {campaignTotals.sent
+                      ? Math.round((campaignTotals.reported / campaignTotals.sent) * 100)
+                      : 0}
+                    %
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {state.campaigns.map((campaign) => (
+                  <div key={campaign.id} className="rounded-xl border border-[var(--line)] p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{campaign.name}</p>
+                        <p className="text-xs text-zinc-600">
+                          {departmentsById[campaign.departmentId] ?? campaign.departmentId} ·{" "}
+                          {campaign.subject}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Статус: {campaign.status} · Изпратени: {campaign.metrics.sentCount} ·
+                          Отворени: {campaign.metrics.openedCount} · Кликнали:{" "}
+                          {campaign.metrics.clickedCount} · Докладвали:{" "}
+                          {campaign.metrics.reportedCount}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--line)] px-3 py-1 text-sm"
+                          onClick={() =>
+                            setCampaignForm({
+                              id: campaign.id,
+                              name: campaign.name,
+                              templateId: campaign.templateId,
+                              subject: campaign.subject,
+                              senderName: campaign.senderName,
+                              content: campaign.content,
+                              departmentId: campaign.departmentId,
+                              startNow: false,
+                            })
+                          }
+                        >
+                          Редакция
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--line)] px-3 py-1 text-sm"
+                          onClick={() => startCampaign(campaign.id)}
+                          disabled={campaign.isArchived || campaign.status === "COMPLETED"}
+                        >
+                          Стартирай
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-[var(--line)] px-3 py-1 text-sm"
+                          onClick={() =>
+                            toggleArchive(
+                              `/api/admin/phishing-campaigns/${campaign.id}`,
+                              campaign.isArchived
+                            )
+                          }
+                        >
+                          {campaign.isArchived ? "Възстанови" : "Архивирай"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {state.campaigns.length === 0 ? (
+                  <p className="text-sm text-zinc-600">Все още няма създадени кампании.</p>
+                ) : null}
+              </div>
+            </article>
+          </div>
         </section>
       ) : null}
 

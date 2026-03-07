@@ -150,3 +150,27 @@ create table if not exists assignment_rules (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists phishing_campaigns (
+  id text primary key,
+  organization_id text not null references organizations(id) on delete cascade,
+  department_id text not null references departments(id),
+  name text not null,
+  template_id text not null,
+  subject text not null,
+  sender_name text not null,
+  content text not null,
+  status text not null check (status in ('DRAFT', 'QUEUED', 'SENT', 'COMPLETED', 'ARCHIVED')),
+  sent_count int not null default 0,
+  opened_count int not null default 0,
+  clicked_count int not null default 0,
+  reported_count int not null default 0,
+  click_rate int not null default 0,
+  report_rate int not null default 0,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  is_archived boolean not null default false,
+  archived_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+

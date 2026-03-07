@@ -9,6 +9,12 @@ export type ScenarioCategory =
   | "MALWARE";
 
 export type ScenarioSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type PhishingCampaignStatus =
+  | "DRAFT"
+  | "QUEUED"
+  | "SENT"
+  | "COMPLETED"
+  | "ARCHIVED";
 
 export type ActionType =
   | "OPEN_ATTACHMENT"
@@ -247,6 +253,39 @@ export interface AssignmentRule {
   updatedAt: string;
 }
 
+export interface PhishingTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  senderName: string;
+  content: string;
+}
+
+export interface PhishingCampaignMetrics {
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  reportedCount: number;
+  clickRate: number;
+  reportRate: number;
+}
+
+export interface PhishingCampaign extends Archivable {
+  id: string;
+  organizationId: string;
+  departmentId: string;
+  name: string;
+  templateId: string;
+  subject: string;
+  senderName: string;
+  content: string;
+  status: PhishingCampaignStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  metrics: PhishingCampaignMetrics;
+}
+
 export interface AdminUserInput {
   name: string;
   email: string;
@@ -311,6 +350,15 @@ export interface AdminRuleInput {
   moduleId: string;
   dueInDays: number;
   retestInDays: number;
+}
+
+export interface AdminPhishingCampaignInput {
+  name: string;
+  templateId: string;
+  subject: string;
+  senderName: string;
+  content: string;
+  departmentId: string;
 }
 
 export interface HistoryEntry {
@@ -397,7 +445,6 @@ export interface UiCopy {
   appName: string;
   nav: {
     employeeHome: string;
-    employeeSimulation: string;
     managerDashboard: string;
     managerSales: string;
     managerFinance: string;

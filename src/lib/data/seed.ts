@@ -7,6 +7,8 @@ import {
   LearningProgress,
   ModuleCompletion,
   Organization,
+  PhishingCampaign,
+  PhishingTemplate,
   Profile,
   RiskEvent,
   Scenario,
@@ -37,12 +39,41 @@ export interface SeedState {
   riskEvents: RiskEvent[];
   assignments: Assignment[];
   assignmentRules: AssignmentRule[];
+  phishingTemplates: PhishingTemplate[];
+  phishingCampaigns: PhishingCampaign[];
 }
 
 const DEPARTMENTS: Department[] = [
   { id: "dept_sales", organizationId: ORG_ID, name: "Продажби" },
   { id: "dept_finance", organizationId: ORG_ID, name: "Финанси" },
   { id: "dept_hr", organizationId: ORG_ID, name: "Човешки ресурси" },
+];
+
+const PHISHING_TEMPLATES: PhishingTemplate[] = [
+  {
+    id: "tpl_courier_invoice",
+    name: "Куриер неплатена доставка",
+    subject: "Спешно: неплатена доставка",
+    senderName: "Куриер Поддръжка",
+    content:
+      "Здравейте, имате неплатена доставка. Потвърдете плащането от линка в рамките на 2 часа.",
+  },
+  {
+    id: "tpl_password_reset",
+    name: "Ресет на парола",
+    subject: "Неуспешен вход, потвърдете профила",
+    senderName: "IT Поддръжка",
+    content:
+      "Засечен е неуспешен вход. Потвърдете профила си чрез прикачения формуляр за сигурност.",
+  },
+  {
+    id: "tpl_bonus_update",
+    name: "HR бонус актуализация",
+    subject: "Актуализация на бонус политика",
+    senderName: "HR Екип",
+    content:
+      "Прегледайте новите условия за бонуси чрез външния портал и потвърдете служебния си достъп.",
+  },
 ];
 
 type ModuleBlueprint = Omit<
@@ -1102,5 +1133,7 @@ export function createSeedState(): SeedState {
     riskEvents: seedDerived.riskEvents,
     assignments: seedDerived.assignments,
     assignmentRules: RULES,
+    phishingTemplates: PHISHING_TEMPLATES,
+    phishingCampaigns: [],
   };
 }
