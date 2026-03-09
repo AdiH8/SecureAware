@@ -36,6 +36,7 @@ import {
   LearningAuditRow,
   LearningMode,
   LearningProgress,
+  ModuleCompletion,
   ManagerCampaignMistake,
   ManagerDashboardMetricsV2,
   ManagerDepartmentBreakdown,
@@ -122,6 +123,36 @@ async function withSupabaseWrite(run: (client: NonNullable<ReturnType<typeof get
   } catch {
     // Fallback mode: keep in-memory state as source of truth when remote mirror fails.
   }
+}
+
+function persistLearningProgress(progress: LearningProgress): void {
+  void withSupabaseWrite(async (supabase) => {
+    await supabase.from("learning_progress").upsert({
+      user_id: progress.userId,
+      module_id: progress.moduleId,
+      video_completed: progress.videoCompleted,
+      text_completed: progress.textCompleted,
+      test_unlocked: progress.testUnlocked,
+      attempts_count: progress.attemptsCount,
+      last_score_percent: progress.lastScorePercent,
+      last_passed: progress.lastPassed,
+      updated_at: progress.updatedAt,
+    });
+  });
+}
+
+function persistModuleCompletion(completion: ModuleCompletion): void {
+  void withSupabaseWrite(async (supabase) => {
+    await supabase.from("module_completions").upsert({
+      user_id: completion.userId,
+      module_id: completion.moduleId,
+      score_percent: completion.scorePercent,
+      completed_at: completion.completedAt,
+      is_archived: completion.isArchived,
+      archived_at: completion.archivedAt,
+      updated_at: completion.updatedAt,
+    });
+  });
 }
 
 function getLatestAttemptByUser(userId: string): Attempt | undefined {
@@ -220,6 +251,116 @@ function mapProfileRow(row: {
     archivedAt: row.archived_at,
     updatedAt: row.updated_at,
   };
+}
+
+function upsertLearningProgressInState(progress: LearningProgress): LearningProgress {
+  const state = ensureState();
+  const index = state.learningProgress.findIndex(
+    (item) => item.userId === progress.userId && item.moduleId === progress.moduleId
+  );
+  if (index >= 0) {
+    state.learningProgress[index] = progress;
+  } else {
+    state.learningProgress.push(progress);
+  }
+  return progress;
+}
+
+function upsertModuleCompletionInState(completion: ModuleCompletion): ModuleCompletion {
+  const state = ensureState();
+  const index = state.moduleCompletions.findIndex(
+    (item) => item.userId === completion.userId && item.moduleId === completion.moduleId
+  );
+  if (index >= 0) {
+    state.moduleCompletions[index] = completion;
+  } else {
+    state.moduleCompletions.push(completion);
+  }
+  return completion;
+}
+
+function mapLearningProgressRow(row: {
+  user_id: string;
+  module_id: string;
+  video_completed: boolean;
+  text_completed: boolean;
+  test_unlocked: boolean;
+  attempts_count: number;
+  last_score_percent: number | null;
+  last_passed: boolean | null;
+  updated_at: string;
+}): LearningProgress {
+  return {
+    userId: row.user_id,
+    moduleId: row.module_id,
+    videoCompleted: row.video_completed,
+    textCompleted: row.text_completed,
+    testUnlocked: row.test_unlocked,
+    attemptsCount: row.attempts_count ?? 0,
+    lastScorePercent: row.last_score_percent ?? null,
+    lastPassed: row.last_passed ?? null,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapModuleCompletionRow(row: {
+  user_id: string;
+  module_id: string;
+  score_percent: number;
+  completed_at: string;
+  is_archived: boolean;
+  archived_at: string | null;
+  updated_at: string;
+}): ModuleCompletion {
+  return {
+    userId: row.user_id,
+    moduleId: row.module_id,
+    scorePercent: row.score_percent,
+    completedAt: row.completed_at,
+    isArchived: row.is_archived,
+    archivedAt: row.archived_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function listLearningProgressResolved(): Promise<LearningProgress[]> {
+  const state = ensureState();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return state.learningProgress;
+  }
+
+  const { data, error } = await supabase
+    .from("learning_progress")
+    .select(
+      "user_id, module_id, video_completed, text_completed, test_unlocked, attempts_count, last_score_percent, last_passed, updated_at"
+    );
+  if (error || !data) {
+    return state.learningProgress;
+  }
+
+  const mapped = data.map(mapLearningProgressRow);
+  mapped.forEach(upsertLearningProgressInState);
+  return mapped;
+}
+
+async function listModuleCompletionsResolved(): Promise<ModuleCompletion[]> {
+  const state = ensureState();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return state.moduleCompletions;
+  }
+
+  const { data, error } = await supabase
+    .from("module_completions")
+    .select("user_id, module_id, score_percent, completed_at, is_archived, archived_at, updated_at");
+  if (error || !data) {
+    return state.moduleCompletions;
+  }
+
+  const mapped = data.map(mapModuleCompletionRow);
+  mapped.forEach(upsertModuleCompletionInState);
+  return mapped;
 }
 
 export function listDemoUsersByRole(role?: Profile["role"]): Profile[] {
@@ -410,6 +551,7 @@ export function markLearningContentComplete(params: {
   }
   progress.testUnlocked = isTestUnlocked(progress);
   progress.updatedAt = new Date().toISOString();
+  persistLearningProgress(progress);
   return progress;
 }
 
@@ -555,6 +697,7 @@ export function finishTestSession(params: { userId: string; sessionId: string })
   progress.lastScorePercent = score.scorePercent;
   progress.lastPassed = score.passed;
   progress.updatedAt = new Date().toISOString();
+  persistLearningProgress(progress);
 
   if (score.passed) {
     const existing = state.moduleCompletions.find(
@@ -564,8 +707,9 @@ export function finishTestSession(params: { userId: string; sessionId: string })
       existing.scorePercent = score.scorePercent;
       existing.completedAt = new Date().toISOString();
       existing.updatedAt = new Date().toISOString();
+      persistModuleCompletion(existing);
     } else {
-      state.moduleCompletions.push({
+      const createdCompletion: ModuleCompletion = {
         userId: params.userId,
         moduleId: session.moduleId,
         scorePercent: score.scorePercent,
@@ -573,7 +717,9 @@ export function finishTestSession(params: { userId: string; sessionId: string })
         isArchived: false,
         archivedAt: null,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      state.moduleCompletions.push(createdCompletion);
+      persistModuleCompletion(createdCompletion);
     }
     state.assignments
       .filter(
@@ -1187,19 +1333,23 @@ export async function listLearningAuditRows(params?: {
   userId?: string;
 }): Promise<LearningAuditRow[]> {
   const state = ensureState();
-  const users = await listActiveEmployeesResolved({ departmentId: params?.departmentId });
+  const [users, resolvedProgress, resolvedCompletions] = await Promise.all([
+    listActiveEmployeesResolved({ departmentId: params?.departmentId }),
+    listLearningProgressResolved(),
+    listModuleCompletionsResolved(),
+  ]);
   const usersFiltered = users.filter((user) => !params?.userId || user.id === params.userId);
   const modules = state.modules
     .filter((module) => isActive(module))
     .sort((a, b) => a.order - b.order);
 
   const progressByKey = new Map<string, LearningProgress>();
-  state.learningProgress.forEach((progress) => {
+  resolvedProgress.forEach((progress) => {
     progressByKey.set(`${progress.userId}::${progress.moduleId}`, progress);
   });
 
-  const completionsByKey = new Map<string, (typeof state.moduleCompletions)[number]>();
-  state.moduleCompletions
+  const completionsByKey = new Map<string, ModuleCompletion>();
+  resolvedCompletions
     .filter((completion) => isActive(completion))
     .forEach((completion) => {
       completionsByKey.set(`${completion.userId}::${completion.moduleId}`, completion);
@@ -1381,13 +1531,16 @@ export async function getManagerDashboardMetricsV2(params?: {
 }): Promise<ManagerDashboardMetricsV2> {
   const state = ensureState();
   const range = params?.range ?? "30d";
-  const profiles = await listActiveEmployeesResolved({
-    departmentId: params?.departmentId,
-  });
-  const events = await listCampaignEventsResolved({
-    departmentId: params?.departmentId,
-    range,
-  });
+  const [profiles, events] = await Promise.all([
+    listActiveEmployeesResolved({
+      departmentId: params?.departmentId,
+    }),
+    listCampaignEventsResolved({
+      departmentId: params?.departmentId,
+      range,
+    }),
+    listModuleCompletionsResolved(),
+  ]);
 
   const users = buildManagerUserRows({
     profiles,
@@ -1431,13 +1584,16 @@ export async function getManagerDepartmentMetricsV2(params: {
 }): Promise<ManagerDepartmentMetricsV2> {
   const state = ensureState();
   const range = params.range ?? "30d";
-  const profiles = await listActiveEmployeesResolved({
-    departmentId: params.departmentId,
-  });
-  const events = await listCampaignEventsResolved({
-    departmentId: params.departmentId,
-    range,
-  });
+  const [profiles, events] = await Promise.all([
+    listActiveEmployeesResolved({
+      departmentId: params.departmentId,
+    }),
+    listCampaignEventsResolved({
+      departmentId: params.departmentId,
+      range,
+    }),
+    listModuleCompletionsResolved(),
+  ]);
   const users = buildManagerUserRows({
     profiles,
     events,

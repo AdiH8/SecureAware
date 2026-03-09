@@ -1,4 +1,5 @@
 import { computeAttemptResult } from "@/lib/risk-engine";
+import { buildCampaignMetricsFromActions } from "@/lib/phishing-campaign-engine";
 import {
   Assignment,
   AssignmentRule,
@@ -8,6 +9,7 @@ import {
   ModuleCompletion,
   Organization,
   PhishingCampaign,
+  PhishingCampaignAction,
   PhishingCampaignEvent,
   PhishingTemplate,
   Profile,
@@ -863,25 +865,141 @@ function buildProfiles(): Profile[] {
     },
   ];
 
-  const employees: Profile[] = [];
-  let counter = 1;
-  for (const department of DEPARTMENTS) {
-    for (let i = 1; i <= 10; i += 1) {
-      const name = `${department.name} служител ${i}`;
-      const emailPrefix = department.id.replace("dept_", "");
-      employees.push({
-        id: `usr_emp_${counter++}`,
-        organizationId: ORG_ID,
-        departmentId: department.id,
-        name,
-        email: `${emailPrefix}.user${i}@secureaware.demo`,
-        role: "EMPLOYEE",
-        isArchived: false,
-        archivedAt: null,
-        updatedAt: now,
-      });
-    }
-  }
+  const employees: Profile[] = [
+    {
+      id: "usr_emp_1",
+      organizationId: ORG_ID,
+      departmentId: "dept_sales",
+      name: "Иво Петров",
+      email: "ivo.petrov@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_2",
+      organizationId: ORG_ID,
+      departmentId: "dept_sales",
+      name: "Надежда Стоянова",
+      email: "nadezhda.stoyanova@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_3",
+      organizationId: ORG_ID,
+      departmentId: "dept_sales",
+      name: "Асен Димитров",
+      email: "asen.dimitrov@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_4",
+      organizationId: ORG_ID,
+      departmentId: "dept_sales",
+      name: "Милена Георгиева",
+      email: "milena.georgieva@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_5",
+      organizationId: ORG_ID,
+      departmentId: "dept_finance",
+      name: "Борислав Илиев",
+      email: "borislav.iliev@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_6",
+      organizationId: ORG_ID,
+      departmentId: "dept_finance",
+      name: "Теодора Николова",
+      email: "teodora.nikolova@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_7",
+      organizationId: ORG_ID,
+      departmentId: "dept_finance",
+      name: "Кристиан Василев",
+      email: "kristian.vasilev@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_8",
+      organizationId: ORG_ID,
+      departmentId: "dept_hr",
+      name: "Десислава Маринова",
+      email: "desislava.marinova@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_9",
+      organizationId: ORG_ID,
+      departmentId: "dept_hr",
+      name: "Симеон Тодоров",
+      email: "simeon.todorov@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_10",
+      organizationId: ORG_ID,
+      departmentId: "dept_hr",
+      name: "Ралица Попова",
+      email: "ralitsa.popova@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: now,
+    },
+    {
+      id: "usr_emp_11",
+      organizationId: ORG_ID,
+      departmentId: "dept_sales",
+      name: "Архивиран служител 1",
+      email: "archived.sales1@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: true,
+      archivedAt: new Date("2026-02-02T08:00:00.000Z").toISOString(),
+      updatedAt: new Date("2026-02-02T08:00:00.000Z").toISOString(),
+    },
+    {
+      id: "usr_emp_12",
+      organizationId: ORG_ID,
+      departmentId: "dept_hr",
+      name: "Архивиран служител 2",
+      email: "archived.hr2@secureaware.demo",
+      role: "EMPLOYEE",
+      isArchived: true,
+      archivedAt: new Date("2026-01-20T08:00:00.000Z").toISOString(),
+      updatedAt: new Date("2026-01-20T08:00:00.000Z").toISOString(),
+    },
+  ];
+
   return [...managers, ...employees];
 }
 
@@ -955,6 +1073,33 @@ function buildModulesAndTests(): {
     testOptions.push(...built.options);
   });
 
+  modules.push({
+    id: "mod_legacy_archived",
+    title: "Архивен модул: Legacy политика",
+    category: "PHISHING",
+    isMini: true,
+    order: 999,
+    durationMinutes: 5,
+    videoDurationSec: 240,
+    videoMockFileName: null,
+    videoMockFileSizeMb: null,
+    questionCount: 5,
+    passThresholdPercent: 80,
+    description: "Стар модул за демонстрация на архивирано съдържание.",
+    bulletPoints: [
+      "Този курс е архивиран и не се показва в активните списъци.",
+      "Използва се за проверка на филтри и edge case визуализации.",
+      "Не участва в активни assignment и completion метрики.",
+    ],
+    textSections: Array.from({ length: 6 }, (_, index) =>
+      `Архивен раздел ${index + 1}. Текстът се пази за историческа справка и тестове на административните филтри.`
+    ),
+    testQuestionIds: [],
+    isArchived: true,
+    archivedAt: new Date("2026-01-10T09:00:00.000Z").toISOString(),
+    updatedAt: new Date("2026-01-10T09:00:00.000Z").toISOString(),
+  });
+
   return { modules, testQuestions, testOptions };
 }
 
@@ -981,13 +1126,397 @@ function buildInitialLearningProgress(params: {
   );
 }
 
+function buildSeedLearningData(params: {
+  profiles: Profile[];
+  modules: TrainingModule[];
+}): { learningProgress: LearningProgress[]; moduleCompletions: ModuleCompletion[] } {
+  const learningProgress = buildInitialLearningProgress(params);
+  const moduleCompletions: ModuleCompletion[] = [];
+  const baseDate = new Date("2026-03-06T09:00:00.000Z");
+
+  const progressByKey = new Map<string, LearningProgress>();
+  learningProgress.forEach((progress) => {
+    progressByKey.set(`${progress.userId}::${progress.moduleId}`, progress);
+  });
+
+  const setProgress = (
+    userId: string,
+    moduleId: string,
+    patch: Partial<LearningProgress>,
+    offsetHours = 0
+  ) => {
+    const key = `${userId}::${moduleId}`;
+    const target = progressByKey.get(key);
+    if (!target) return;
+    Object.assign(target, patch);
+    target.updatedAt = new Date(baseDate.getTime() + offsetHours * 36e5).toISOString();
+  };
+
+  const addCompletion = (
+    userId: string,
+    moduleId: string,
+    scorePercent: number,
+    offsetHours: number,
+    isArchived = false
+  ) => {
+    const completedAt = new Date(baseDate.getTime() + offsetHours * 36e5).toISOString();
+    moduleCompletions.push({
+      userId,
+      moduleId,
+      scorePercent,
+      completedAt,
+      isArchived,
+      archivedAt: isArchived ? new Date("2026-02-01T08:00:00.000Z").toISOString() : null,
+      updatedAt: completedAt,
+    });
+  };
+
+  // Keep users 1-4 simple for deterministic integration tests.
+  setProgress("usr_emp_5", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 95,
+    lastPassed: true,
+  }, 2);
+  addCompletion("usr_emp_5", "mod_phishing_core", 95, 2);
+  setProgress("usr_emp_5", "mod_url_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 92,
+    lastPassed: true,
+  }, 3);
+  addCompletion("usr_emp_5", "mod_url_core", 92, 3);
+  setProgress("usr_emp_5", "mod_social_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 90,
+    lastPassed: true,
+  }, 4);
+  addCompletion("usr_emp_5", "mod_social_core", 90, 4);
+
+  setProgress("usr_emp_6", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 3,
+    lastScorePercent: 84,
+    lastPassed: true,
+  }, 5);
+  addCompletion("usr_emp_6", "mod_phishing_core", 84, 5);
+  setProgress("usr_emp_6", "mod_url_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 2,
+    lastScorePercent: 81,
+    lastPassed: true,
+  }, 6);
+  addCompletion("usr_emp_6", "mod_url_core", 81, 6);
+  setProgress("usr_emp_6", "mod_social_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 2,
+    lastScorePercent: 74,
+    lastPassed: false,
+  }, 7);
+  setProgress("usr_emp_6", "mini_phishing", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 88,
+    lastPassed: true,
+  }, 8);
+  addCompletion("usr_emp_6", "mini_phishing", 88, 8);
+
+  setProgress("usr_emp_7", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 68,
+    lastPassed: false,
+  }, 9);
+  setProgress("usr_emp_7", "mod_url_core", {
+    videoCompleted: false,
+    textCompleted: true,
+    testUnlocked: false,
+    attemptsCount: 0,
+    lastScorePercent: null,
+    lastPassed: null,
+  }, 10);
+  setProgress("usr_emp_7", "mini_url", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 2,
+    lastScorePercent: 82,
+    lastPassed: true,
+  }, 11);
+  addCompletion("usr_emp_7", "mini_url", 82, 11);
+
+  setProgress("usr_emp_8", "mod_phishing_core", {
+    videoCompleted: false,
+    textCompleted: true,
+    testUnlocked: false,
+    attemptsCount: 0,
+    lastScorePercent: null,
+    lastPassed: null,
+  }, 12);
+  setProgress("usr_emp_8", "mod_social_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 86,
+    lastPassed: true,
+  }, 13);
+  addCompletion("usr_emp_8", "mod_social_core", 86, 13);
+
+  setProgress("usr_emp_9", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: false,
+    testUnlocked: true,
+    attemptsCount: 0,
+    lastScorePercent: null,
+    lastPassed: null,
+  }, 14);
+  setProgress("usr_emp_9", "mod_url_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 79,
+    lastPassed: false,
+  }, 15);
+  setProgress("usr_emp_9", "mod_social_core", {
+    videoCompleted: false,
+    textCompleted: true,
+    testUnlocked: false,
+    attemptsCount: 0,
+    lastScorePercent: null,
+    lastPassed: null,
+  }, 16);
+
+  setProgress("usr_emp_10", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 2,
+    lastScorePercent: 89,
+    lastPassed: true,
+  }, 17);
+  addCompletion("usr_emp_10", "mod_phishing_core", 89, 17);
+  setProgress("usr_emp_10", "mod_url_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 91,
+    lastPassed: true,
+  }, 18);
+  addCompletion("usr_emp_10", "mod_url_core", 91, 18);
+  setProgress("usr_emp_10", "mod_social_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 1,
+    lastScorePercent: 88,
+    lastPassed: true,
+  }, 19);
+  addCompletion("usr_emp_10", "mod_social_core", 88, 19);
+  setProgress("usr_emp_10", "mini_social", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 2,
+    lastScorePercent: 85,
+    lastPassed: true,
+  }, 20);
+  addCompletion("usr_emp_10", "mini_social", 85, 20);
+
+  // Archived edge data.
+  setProgress("usr_emp_11", "mod_phishing_core", {
+    videoCompleted: true,
+    textCompleted: true,
+    testUnlocked: true,
+    attemptsCount: 4,
+    lastScorePercent: 62,
+    lastPassed: false,
+  }, -50);
+  addCompletion("usr_emp_11", "mini_phishing", 72, -60, true);
+
+  return { learningProgress, moduleCompletions };
+}
+
+function buildSeedCampaignData(params: {
+  profiles: Profile[];
+}): { phishingCampaigns: PhishingCampaign[]; phishingCampaignEvents: PhishingCampaignEvent[] } {
+  const activeEmployees = params.profiles.filter(
+    (profile) => profile.role === "EMPLOYEE" && !profile.isArchived
+  );
+  const employeesByDepartment = new Map<string, Profile[]>();
+  DEPARTMENTS.forEach((department) => {
+    employeesByDepartment.set(
+      department.id,
+      activeEmployees.filter((employee) => employee.departmentId === department.id)
+    );
+  });
+
+  const templateByCategory: Record<string, PhishingTemplate> = {
+    sales: PHISHING_TEMPLATES[0],
+    finance: PHISHING_TEMPLATES[1],
+    hr: PHISHING_TEMPLATES[2],
+  };
+
+  const definitions: Array<{
+    id: string;
+    name: string;
+    departmentId: string;
+    templateKey: "sales" | "finance" | "hr";
+    status: PhishingCampaign["status"];
+    createdAt: string;
+    startedAt: string | null;
+    completedAt: string | null;
+    archived: boolean;
+  }> = [
+    {
+      id: "phc_seed_sales_completed",
+      name: "Кампания Продажби Q1",
+      departmentId: "dept_sales",
+      templateKey: "sales",
+      status: "COMPLETED",
+      createdAt: "2026-03-01T08:00:00.000Z",
+      startedAt: "2026-03-01T09:00:00.000Z",
+      completedAt: "2026-03-01T10:00:00.000Z",
+      archived: false,
+    },
+    {
+      id: "phc_seed_fin_completed",
+      name: "Кампания Финанси плащания",
+      departmentId: "dept_finance",
+      templateKey: "finance",
+      status: "COMPLETED",
+      createdAt: "2026-03-03T08:00:00.000Z",
+      startedAt: "2026-03-03T09:00:00.000Z",
+      completedAt: "2026-03-03T10:00:00.000Z",
+      archived: false,
+    },
+    {
+      id: "phc_seed_hr_sent",
+      name: "Кампания HR политика бонуси",
+      departmentId: "dept_hr",
+      templateKey: "hr",
+      status: "SENT",
+      createdAt: "2026-03-06T08:00:00.000Z",
+      startedAt: "2026-03-06T09:00:00.000Z",
+      completedAt: null,
+      archived: false,
+    },
+    {
+      id: "phc_seed_sales_draft",
+      name: "Кампания Продажби април",
+      departmentId: "dept_sales",
+      templateKey: "sales",
+      status: "DRAFT",
+      createdAt: "2026-03-08T09:00:00.000Z",
+      startedAt: null,
+      completedAt: null,
+      archived: false,
+    },
+    {
+      id: "phc_seed_hr_archived",
+      name: "Кампания HR архив",
+      departmentId: "dept_hr",
+      templateKey: "hr",
+      status: "ARCHIVED",
+      createdAt: "2026-01-15T08:00:00.000Z",
+      startedAt: "2026-01-15T09:00:00.000Z",
+      completedAt: "2026-01-15T10:00:00.000Z",
+      archived: true,
+    },
+  ];
+
+  const campaigns: PhishingCampaign[] = [];
+  const events: PhishingCampaignEvent[] = [];
+  const actionCycle: PhishingCampaignAction[] = ["REPORTED", "OPENED", "CLICKED", "IGNORED"];
+
+  definitions.forEach((definition, campaignIndex) => {
+    const recipients = employeesByDepartment.get(definition.departmentId) ?? [];
+    const campaignActions: PhishingCampaignAction[] = [];
+    recipients.forEach((recipient, recipientIndex) => {
+      if (!definition.startedAt) return;
+      const action = actionCycle[(campaignIndex + recipientIndex) % actionCycle.length];
+      campaignActions.push(action);
+      events.push({
+        id: `pce_seed_${campaignIndex + 1}_${recipientIndex + 1}`,
+        campaignId: definition.id,
+        organizationId: ORG_ID,
+        userId: recipient.id,
+        departmentId: recipient.departmentId,
+        action,
+        createdAt: new Date(
+          Date.parse(definition.startedAt) + recipientIndex * 6 * 60 * 1000
+        ).toISOString(),
+        isArchived: definition.archived,
+        archivedAt: definition.archived ? definition.completedAt : null,
+        updatedAt: definition.completedAt ?? definition.createdAt,
+      });
+    });
+
+    const template = templateByCategory[definition.templateKey];
+    const metrics =
+      definition.status === "DRAFT"
+        ? {
+            sentCount: 0,
+            openedCount: 0,
+            clickedCount: 0,
+            reportedCount: 0,
+            clickRate: 0,
+            reportRate: 0,
+          }
+        : buildCampaignMetricsFromActions(campaignActions);
+
+    campaigns.push({
+      id: definition.id,
+      organizationId: ORG_ID,
+      departmentId: definition.departmentId,
+      name: definition.name,
+      templateId: template.id,
+      subject: template.subject,
+      senderName: template.senderName,
+      content: template.content,
+      status: definition.status,
+      startedAt: definition.startedAt,
+      completedAt: definition.completedAt,
+      createdAt: definition.createdAt,
+      isArchived: definition.archived,
+      archivedAt: definition.archived ? definition.completedAt : null,
+      updatedAt: definition.completedAt ?? definition.createdAt,
+      metrics,
+    });
+  });
+
+  return {
+    phishingCampaigns: campaigns,
+    phishingCampaignEvents: events,
+  };
+}
+
 function buildSeedAttempts(params: {
   profiles: Profile[];
   scenarios: Scenario[];
   options: ScenarioOption[];
 }): { attempts: Attempt[]; riskEvents: RiskEvent[]; assignments: Assignment[] } {
   const { profiles, scenarios, options } = params;
-  const employees = profiles.filter((p) => p.role === "EMPLOYEE");
+  const employees = profiles.filter((p) => p.role === "EMPLOYEE" && !p.isArchived);
   const now = new Date("2026-03-07T10:00:00.000Z");
   const categoryLabel: Record<ScenarioCategory, string> = {
     PHISHING: "фишинг",
@@ -1118,6 +1647,24 @@ export function createSeedState(): SeedState {
     scenarios: SCENARIOS,
     options: SCENARIO_OPTIONS,
   });
+  const learningSeed = buildSeedLearningData({ profiles, modules });
+  const campaignSeed = buildSeedCampaignData({ profiles });
+
+  if (seedDerived.attempts[0]) {
+    seedDerived.attempts[0].isArchived = true;
+    seedDerived.attempts[0].archivedAt = "2026-02-03T10:00:00.000Z";
+    seedDerived.attempts[0].updatedAt = "2026-02-03T10:00:00.000Z";
+  }
+  if (seedDerived.riskEvents[0]) {
+    seedDerived.riskEvents[0].isArchived = true;
+    seedDerived.riskEvents[0].archivedAt = "2026-02-03T10:00:00.000Z";
+    seedDerived.riskEvents[0].updatedAt = "2026-02-03T10:00:00.000Z";
+  }
+  if (seedDerived.assignments[0]) {
+    seedDerived.assignments[0].isArchived = true;
+    seedDerived.assignments[0].archivedAt = "2026-02-03T10:00:00.000Z";
+    seedDerived.assignments[0].updatedAt = "2026-02-03T10:00:00.000Z";
+  }
 
   return {
     organization: { id: ORG_ID, name: "SecureAware Демо Организация" },
@@ -1128,15 +1675,15 @@ export function createSeedState(): SeedState {
     scenarioOptions: SCENARIO_OPTIONS,
     testQuestions,
     testOptions,
-    learningProgress: buildInitialLearningProgress({ profiles, modules }),
-    moduleCompletions: [],
+    learningProgress: learningSeed.learningProgress,
+    moduleCompletions: learningSeed.moduleCompletions,
     testSessions: [],
     attempts: seedDerived.attempts,
     riskEvents: seedDerived.riskEvents,
     assignments: seedDerived.assignments,
     assignmentRules: RULES,
     phishingTemplates: PHISHING_TEMPLATES,
-    phishingCampaigns: [],
-    phishingCampaignEvents: [],
+    phishingCampaigns: campaignSeed.phishingCampaigns,
+    phishingCampaignEvents: campaignSeed.phishingCampaignEvents,
   };
 }

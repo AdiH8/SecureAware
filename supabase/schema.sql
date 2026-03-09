@@ -93,6 +93,30 @@ create table if not exists test_options (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists learning_progress (
+  user_id text not null references profiles(id) on delete cascade,
+  module_id text not null references modules(id) on delete cascade,
+  video_completed boolean not null default false,
+  text_completed boolean not null default false,
+  test_unlocked boolean not null default false,
+  attempts_count int not null default 0,
+  last_score_percent int,
+  last_passed boolean,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, module_id)
+);
+
+create table if not exists module_completions (
+  user_id text not null references profiles(id) on delete cascade,
+  module_id text not null references modules(id) on delete cascade,
+  score_percent int not null,
+  completed_at timestamptz not null default now(),
+  is_archived boolean not null default false,
+  archived_at timestamptz,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, module_id)
+);
+
 create table if not exists attempts (
   id text primary key,
   organization_id text not null references organizations(id) on delete cascade,
