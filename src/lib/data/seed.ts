@@ -8,6 +8,7 @@ import {
   ModuleCompletion,
   Organization,
   PhishingCampaign,
+  PhishingCampaignEvent,
   PhishingTemplate,
   Profile,
   RiskEvent,
@@ -41,6 +42,7 @@ export interface SeedState {
   assignmentRules: AssignmentRule[];
   phishingTemplates: PhishingTemplate[];
   phishingCampaigns: PhishingCampaign[];
+  phishingCampaignEvents: PhishingCampaignEvent[];
 }
 
 const DEPARTMENTS: Department[] = [
@@ -1135,5 +1137,6 @@ export function createSeedState(): SeedState {
     assignmentRules: RULES,
     phishingTemplates: PHISHING_TEMPLATES,
     phishingCampaigns: [],
+    phishingCampaignEvents: [],
   };
 }

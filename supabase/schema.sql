@@ -174,3 +174,25 @@ create table if not exists phishing_campaigns (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists phishing_campaign_events (
+  id text primary key,
+  campaign_id text not null references phishing_campaigns(id) on delete cascade,
+  organization_id text not null references organizations(id) on delete cascade,
+  user_id text not null references profiles(id) on delete cascade,
+  department_id text not null references departments(id),
+  action text not null check (action in ('CLICKED', 'OPENED', 'REPORTED', 'IGNORED')),
+  created_at timestamptz not null default now(),
+  is_archived boolean not null default false,
+  archived_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_phishing_campaign_events_campaign
+  on phishing_campaign_events(campaign_id);
+create index if not exists idx_phishing_campaign_events_department
+  on phishing_campaign_events(department_id);
+create index if not exists idx_phishing_campaign_events_user
+  on phishing_campaign_events(user_id);
+create index if not exists idx_phishing_campaign_events_created
+  on phishing_campaign_events(created_at);
+

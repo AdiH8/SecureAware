@@ -15,6 +15,11 @@ export type PhishingCampaignStatus =
   | "SENT"
   | "COMPLETED"
   | "ARCHIVED";
+export type PhishingCampaignAction =
+  | "CLICKED"
+  | "OPENED"
+  | "REPORTED"
+  | "IGNORED";
 
 export type ActionType =
   | "OPEN_ATTACHMENT"
@@ -284,6 +289,73 @@ export interface PhishingCampaign extends Archivable {
   completedAt: string | null;
   createdAt: string;
   metrics: PhishingCampaignMetrics;
+}
+
+export interface PhishingCampaignEvent extends Archivable {
+  id: string;
+  campaignId: string;
+  organizationId: string;
+  userId: string;
+  departmentId: string;
+  action: PhishingCampaignAction;
+  createdAt: string;
+}
+
+export interface ManagerCampaignMistake {
+  action: PhishingCampaignAction;
+  label: string;
+  count: number;
+}
+
+export interface ManagerDepartmentBreakdown {
+  departmentId: string;
+  departmentName: string;
+  sentCount: number;
+  clickRate: number;
+  reportRate: number;
+  completionRate: number;
+}
+
+export interface ManagerUserRow {
+  userId: string;
+  name: string;
+  email: string;
+  departmentId: string;
+  departmentName: string;
+  lastCampaignAction: PhishingCampaignAction | "NONE";
+  lastCampaignAt: string | null;
+  riskBand: RiskBand;
+  completedModules: number;
+  totalModules: number;
+  completionRate: number;
+}
+
+export interface ManagerDashboardMetricsV2 {
+  range: string;
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  reportedCount: number;
+  clickRate: number;
+  reportRate: number;
+  learningCompletionRate: number;
+  deptBreakdown: ManagerDepartmentBreakdown[];
+  commonMistakes: ManagerCampaignMistake[];
+  atRiskUsers: ManagerUserRow[];
+}
+
+export interface ManagerDepartmentMetricsV2 {
+  range: string;
+  department: ManagerDepartmentBreakdown;
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  reportedCount: number;
+  clickRate: number;
+  reportRate: number;
+  learningCompletionRate: number;
+  users: ManagerUserRow[];
+  commonMistakes: ManagerCampaignMistake[];
 }
 
 export interface AdminUserInput {

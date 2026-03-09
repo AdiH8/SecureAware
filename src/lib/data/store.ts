@@ -2,7 +2,8 @@ import { buildFollowUpAssignment, shouldTriggerRule } from "@/lib/adaptive";
 import { createSeedState, SeedState } from "@/lib/data/seed";
 import { isSelectedAnswerCorrect, isTestUnlocked, evaluateTestScore } from "@/lib/learning";
 import {
-  buildMockCampaignMetrics,
+  buildCampaignMetricsFromActions,
+  buildMockCampaignAction,
   startCampaignLifecycle,
 } from "@/lib/phishing-campaign-engine";
 import { computeAttemptResult } from "@/lib/risk-engine";
@@ -34,7 +35,14 @@ import {
   HistoryEntry,
   LearningMode,
   LearningProgress,
+  ManagerCampaignMistake,
+  ManagerDashboardMetricsV2,
+  ManagerDepartmentBreakdown,
+  ManagerDepartmentMetricsV2,
+  ManagerUserRow,
   PhishingCampaign,
+  PhishingCampaignAction,
+  PhishingCampaignEvent,
   PhishingCampaignStatus,
   PhishingTemplate,
   Profile,
@@ -947,6 +955,13 @@ function normalizeCampaignStatus(value: string): PhishingCampaignStatus {
   return "COMPLETED";
 }
 
+function normalizeCampaignAction(value: string): PhishingCampaignAction {
+  if (value === "CLICKED") return "CLICKED";
+  if (value === "OPENED") return "OPENED";
+  if (value === "REPORTED") return "REPORTED";
+  return "IGNORED";
+}
+
 function upsertPhishingCampaignInState(campaign: PhishingCampaign): void {
   const state = ensureState();
   const existingIndex = state.phishingCampaigns.findIndex((item) => item.id === campaign.id);
@@ -1007,6 +1022,352 @@ function mapPhishingCampaignRow(row: {
   };
 }
 
+function mapPhishingCampaignEventRow(row: {
+  id: string;
+  campaign_id: string;
+  organization_id: string;
+  user_id: string;
+  department_id: string;
+  action: string;
+  created_at: string;
+  is_archived: boolean;
+  archived_at: string | null;
+  updated_at: string;
+}): PhishingCampaignEvent {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    organizationId: row.organization_id,
+    userId: row.user_id,
+    departmentId: row.department_id,
+    action: normalizeCampaignAction(row.action),
+    createdAt: row.created_at,
+    isArchived: row.is_archived,
+    archivedAt: row.archived_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function upsertCampaignEventInState(event: PhishingCampaignEvent): void {
+  const state = ensureState();
+  const existingIndex = state.phishingCampaignEvents.findIndex((item) => item.id === event.id);
+  if (existingIndex >= 0) {
+    state.phishingCampaignEvents[existingIndex] = event;
+  } else {
+    state.phishingCampaignEvents.push(event);
+  }
+}
+
+function parseRangeDays(range = "30d"): number {
+  const normalized = range.trim().toLowerCase();
+  const matched = normalized.match(/^(\d{1,3})d$/);
+  if (!matched) return 30;
+  const days = Number(matched[1]);
+  if (!Number.isFinite(days) || days <= 0) return 30;
+  return Math.min(days, 365);
+}
+
+function isWithinDays(createdAt: string, days: number): boolean {
+  const created = Date.parse(createdAt);
+  if (!Number.isFinite(created)) return false;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return created >= cutoff;
+}
+
+function filterCampaignEventsFromState(params: {
+  departmentId?: string;
+  range: string;
+}): PhishingCampaignEvent[] {
+  const state = ensureState();
+  const days = parseRangeDays(params.range);
+  return state.phishingCampaignEvents.filter(
+    (event) =>
+      isActive(event) &&
+      isWithinDays(event.createdAt, days) &&
+      (!params.departmentId || event.departmentId === params.departmentId)
+  );
+}
+
+async function listCampaignEventsResolved(params: {
+  departmentId?: string;
+  range: string;
+}): Promise<PhishingCampaignEvent[]> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return filterCampaignEventsFromState(params);
+  }
+
+  const days = parseRangeDays(params.range);
+  const cutoffIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
+    .from("phishing_campaign_events")
+    .select(
+      "id, campaign_id, organization_id, user_id, department_id, action, created_at, is_archived, archived_at, updated_at"
+    )
+    .eq("is_archived", false)
+    .gte("created_at", cutoffIso)
+    .order("created_at", { ascending: false });
+  if (params.departmentId) {
+    query = query.eq("department_id", params.departmentId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) {
+    return filterCampaignEventsFromState(params);
+  }
+
+  const events = data.map(mapPhishingCampaignEventRow);
+  events.forEach(upsertCampaignEventInState);
+  return events;
+}
+
+function getCoreModulesTotal(): number {
+  const state = ensureState();
+  return state.modules.filter((module) => isActive(module) && !module.isMini).length;
+}
+
+function getCompletedCoreModulesCount(userId: string): number {
+  const state = ensureState();
+  const coreModuleIds = new Set(
+    state.modules.filter((module) => isActive(module) && !module.isMini).map((module) => module.id)
+  );
+  return state.moduleCompletions.filter(
+    (item) => item.userId === userId && coreModuleIds.has(item.moduleId) && isActive(item)
+  ).length;
+}
+
+function completionRateForUser(userId: string): number {
+  const total = getCoreModulesTotal();
+  if (!total) return 0;
+  return Math.round((getCompletedCoreModulesCount(userId) / total) * 100);
+}
+
+function riskBandFromCampaignAction(
+  action: PhishingCampaignAction | "NONE",
+  completionRate: number
+): "HIGH" | "MEDIUM" | "SECURE" {
+  if (action === "CLICKED") return "HIGH";
+  if (action === "IGNORED") return completionRate >= 70 ? "MEDIUM" : "HIGH";
+  if (action === "OPENED") return completionRate >= 80 ? "SECURE" : "MEDIUM";
+  if (action === "REPORTED") return completionRate >= 70 ? "SECURE" : "MEDIUM";
+  if (completionRate < 50) return "HIGH";
+  if (completionRate < 80) return "MEDIUM";
+  return "SECURE";
+}
+
+function actionLabel(action: PhishingCampaignAction): string {
+  if (action === "CLICKED") return "Кликнат линк";
+  if (action === "OPENED") return "Отворен имейл";
+  if (action === "REPORTED") return "Докладван имейл";
+  return "Игнориран имейл";
+}
+
+function buildManagerUserRows(params: {
+  profiles: Profile[];
+  events: PhishingCampaignEvent[];
+  departmentId?: string;
+}): ManagerUserRow[] {
+  const state = ensureState();
+  const relevantProfiles = params.profiles.filter(
+    (profile) =>
+      profile.role === "EMPLOYEE" &&
+      isActive(profile) &&
+      (!params.departmentId || profile.departmentId === params.departmentId)
+  );
+
+  return relevantProfiles
+    .map((profile) => {
+      const lastEvent = params.events
+        .filter((event) => event.userId === profile.id)
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+      const completionRate = completionRateForUser(profile.id);
+      const totalModules = getCoreModulesTotal();
+      const completedModules = getCompletedCoreModulesCount(profile.id);
+      const departmentName =
+        state.departments.find((department) => department.id === profile.departmentId)?.name ??
+        profile.departmentId;
+      const lastCampaignAction = lastEvent?.action ?? "NONE";
+
+      return {
+        userId: profile.id,
+        name: profile.name,
+        email: profile.email,
+        departmentId: profile.departmentId,
+        departmentName,
+        lastCampaignAction,
+        lastCampaignAt: lastEvent?.createdAt ?? null,
+        riskBand: riskBandFromCampaignAction(lastCampaignAction, completionRate),
+        completedModules,
+        totalModules,
+        completionRate,
+      } satisfies ManagerUserRow;
+    })
+    .sort((a, b) => {
+      const rank = { HIGH: 0, MEDIUM: 1, SECURE: 2 } as const;
+      if (rank[a.riskBand] !== rank[b.riskBand]) return rank[a.riskBand] - rank[b.riskBand];
+      return a.completionRate - b.completionRate;
+    });
+}
+
+function aggregateCommonCampaignMistakes(
+  events: PhishingCampaignEvent[]
+): ManagerCampaignMistake[] {
+  const counts = new Map<PhishingCampaignAction, number>();
+  events.forEach((event) => {
+    counts.set(event.action, (counts.get(event.action) ?? 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([action, count]) => ({
+      action,
+      count,
+      label: actionLabel(action),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+}
+
+function aggregateDepartmentBreakdown(params: {
+  departments: Department[];
+  users: ManagerUserRow[];
+  events: PhishingCampaignEvent[];
+  departmentId?: string;
+}): ManagerDepartmentBreakdown[] {
+  const selected = params.departmentId
+    ? params.departments.filter((department) => department.id === params.departmentId)
+    : params.departments;
+
+  return selected.map((department) => {
+    const deptEvents = params.events.filter((event) => event.departmentId === department.id);
+    const deptUsers = params.users.filter((user) => user.departmentId === department.id);
+    const sentCount = deptEvents.length;
+    const clickedCount = deptEvents.filter((event) => event.action === "CLICKED").length;
+    const reportedCount = deptEvents.filter((event) => event.action === "REPORTED").length;
+    const completionRate = deptUsers.length
+      ? Math.round(
+          deptUsers.reduce((sum, user) => sum + user.completionRate, 0) / deptUsers.length
+        )
+      : 0;
+    return {
+      departmentId: department.id,
+      departmentName: department.name,
+      sentCount,
+      clickRate: safePercent(clickedCount, sentCount),
+      reportRate: safePercent(reportedCount, sentCount),
+      completionRate,
+    };
+  });
+}
+
+export async function getManagerDashboardMetricsV2(params?: {
+  departmentId?: string;
+  range?: string;
+}): Promise<ManagerDashboardMetricsV2> {
+  const state = ensureState();
+  const range = params?.range ?? "30d";
+  const profiles = await listActiveEmployeesResolved({
+    departmentId: params?.departmentId,
+  });
+  const events = await listCampaignEventsResolved({
+    departmentId: params?.departmentId,
+    range,
+  });
+
+  const users = buildManagerUserRows({
+    profiles,
+    events,
+    departmentId: params?.departmentId,
+  });
+  const sentCount = events.length;
+  const openedCount = events.filter(
+    (event) =>
+      event.action === "OPENED" || event.action === "CLICKED" || event.action === "REPORTED"
+  ).length;
+  const clickedCount = events.filter((event) => event.action === "CLICKED").length;
+  const reportedCount = events.filter((event) => event.action === "REPORTED").length;
+  const learningCompletionRate = users.length
+    ? Math.round(users.reduce((sum, user) => sum + user.completionRate, 0) / users.length)
+    : 0;
+
+  return {
+    range,
+    sentCount,
+    openedCount,
+    clickedCount,
+    reportedCount,
+    clickRate: safePercent(clickedCount, sentCount),
+    reportRate: safePercent(reportedCount, sentCount),
+    learningCompletionRate,
+    deptBreakdown: aggregateDepartmentBreakdown({
+      departments: state.departments,
+      users,
+      events,
+      departmentId: params?.departmentId,
+    }),
+    commonMistakes: aggregateCommonCampaignMistakes(events),
+    atRiskUsers: users.slice(0, 8),
+  };
+}
+
+export async function getManagerDepartmentMetricsV2(params: {
+  departmentId: string;
+  range?: string;
+}): Promise<ManagerDepartmentMetricsV2> {
+  const state = ensureState();
+  const range = params.range ?? "30d";
+  const profiles = await listActiveEmployeesResolved({
+    departmentId: params.departmentId,
+  });
+  const events = await listCampaignEventsResolved({
+    departmentId: params.departmentId,
+    range,
+  });
+  const users = buildManagerUserRows({
+    profiles,
+    events,
+    departmentId: params.departmentId,
+  });
+  const breakdown = aggregateDepartmentBreakdown({
+    departments: state.departments,
+    users,
+    events,
+    departmentId: params.departmentId,
+  });
+  const department = breakdown[0] ?? {
+    departmentId: params.departmentId,
+    departmentName: params.departmentId,
+    sentCount: 0,
+    clickRate: 0,
+    reportRate: 0,
+    completionRate: 0,
+  };
+
+  const sentCount = events.length;
+  const openedCount = events.filter(
+    (event) =>
+      event.action === "OPENED" || event.action === "CLICKED" || event.action === "REPORTED"
+  ).length;
+  const clickedCount = events.filter((event) => event.action === "CLICKED").length;
+  const reportedCount = events.filter((event) => event.action === "REPORTED").length;
+  const learningCompletionRate = users.length
+    ? Math.round(users.reduce((sum, user) => sum + user.completionRate, 0) / users.length)
+    : 0;
+
+  return {
+    range,
+    department,
+    sentCount,
+    openedCount,
+    clickedCount,
+    reportedCount,
+    clickRate: safePercent(clickedCount, sentCount),
+    reportRate: safePercent(reportedCount, sentCount),
+    learningCompletionRate,
+    users,
+    commonMistakes: aggregateCommonCampaignMistakes(events),
+  };
+}
+
 function listActiveEmployeesByDepartmentFromState(departmentId: string): Profile[] {
   const state = ensureState();
   return state.profiles.filter(
@@ -1036,25 +1397,64 @@ async function listActiveEmployeesByDepartmentResolved(departmentId: string): Pr
   return data.map(mapProfileRow);
 }
 
-function applyCampaignStart(campaign: PhishingCampaign, recipientCount: number): PhishingCampaign {
+async function listActiveEmployeesResolved(params?: {
+  departmentId?: string;
+}): Promise<Profile[]> {
+  const state = ensureState();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return state.profiles.filter(
+      (profile) =>
+        profile.role === "EMPLOYEE" &&
+        isActive(profile) &&
+        (!params?.departmentId || profile.departmentId === params.departmentId)
+    );
+  }
+
+  let query = supabase
+    .from("profiles")
+    .select("id, organization_id, department_id, name, email, role, is_archived, archived_at, updated_at")
+    .eq("role", "EMPLOYEE")
+    .eq("is_archived", false);
+  if (params?.departmentId) {
+    query = query.eq("department_id", params.departmentId);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) {
+    return state.profiles.filter(
+      (profile) =>
+        profile.role === "EMPLOYEE" &&
+        isActive(profile) &&
+        (!params?.departmentId || profile.departmentId === params.departmentId)
+    );
+  }
+  const mapped = data.map(mapProfileRow);
+  mapped.forEach(upsertProfileInState);
+  return mapped;
+}
+
+function applyCampaignStart(params: {
+  campaign: PhishingCampaign;
+  recipientCount: number;
+  metrics: PhishingCampaign["metrics"];
+}): PhishingCampaign {
   const now = nowIso();
   const lifecycle = startCampaignLifecycle();
-  let status: PhishingCampaignStatus = campaign.status;
+  let status: PhishingCampaignStatus = params.campaign.status;
   lifecycle.forEach((nextStatus) => {
     status = nextStatus;
   });
 
-  const metrics = buildMockCampaignMetrics({
-    campaignId: campaign.id,
-    recipientCount,
-  });
-
-  campaign.status = status;
-  campaign.startedAt = now;
-  campaign.completedAt = now;
-  campaign.metrics = metrics;
-  campaign.updatedAt = now;
-  return campaign;
+  params.campaign.status = status;
+  params.campaign.startedAt = now;
+  params.campaign.completedAt = now;
+  params.campaign.metrics = {
+    ...params.metrics,
+    sentCount: Math.max(params.metrics.sentCount, params.recipientCount),
+  };
+  params.campaign.updatedAt = now;
+  return params.campaign;
 }
 
 export function listPhishingTemplates(): PhishingTemplate[] {
@@ -1214,8 +1614,21 @@ export async function setAdminPhishingCampaignArchived(
 
   Object.assign(campaign, archiveState(isArchived));
   campaign.status = isArchived ? "ARCHIVED" : "DRAFT";
+  state.phishingCampaignEvents
+    .filter((event) => event.campaignId === campaign.id)
+    .forEach((event) => {
+      Object.assign(event, archiveState(isArchived));
+    });
 
   await withSupabaseWrite(async (supabase) => {
+    await supabase
+      .from("phishing_campaign_events")
+      .update({
+        is_archived: isArchived,
+        archived_at: isArchived ? nowIso() : null,
+        updated_at: nowIso(),
+      })
+      .eq("campaign_id", campaign.id);
     await supabase
       .from("phishing_campaigns")
       .update({
@@ -1234,16 +1647,61 @@ export async function startAdminPhishingCampaign(campaignId: string): Promise<Ph
   const state = ensureState();
   const campaign = state.phishingCampaigns.find((item) => item.id === campaignId);
   if (!campaign) {
-    throw new Error("Кампанията не е намерена.");
+    throw new Error("?????????? ?? ? ????????.");
   }
   if (campaign.isArchived || campaign.status === "ARCHIVED") {
-    throw new Error("Архивирана кампания не може да бъде стартирана.");
+    throw new Error("?????????? ???????? ?? ???? ?? ???? ??????????.");
   }
 
   const recipients = await listActiveEmployeesByDepartmentResolved(campaign.departmentId);
-  applyCampaignStart(campaign, recipients.length);
+  const now = nowIso();
+  const events: PhishingCampaignEvent[] = recipients.map((recipient) => ({
+    id: nextId("pcev"),
+    campaignId: campaign.id,
+    organizationId: campaign.organizationId,
+    userId: recipient.id,
+    departmentId: campaign.departmentId,
+    action: buildMockCampaignAction({
+      campaignId: campaign.id,
+      userId: recipient.id,
+    }),
+    createdAt: now,
+    isArchived: false,
+    archivedAt: null,
+    updatedAt: now,
+  }));
+  const metrics = buildCampaignMetricsFromActions(events.map((item) => item.action));
+
+  state.phishingCampaignEvents = state.phishingCampaignEvents.filter(
+    (item) => item.campaignId !== campaign.id
+  );
+  state.phishingCampaignEvents.push(...events);
+
+  applyCampaignStart({
+    campaign,
+    recipientCount: recipients.length,
+    metrics,
+  });
 
   await withSupabaseWrite(async (supabase) => {
+    await supabase.from("phishing_campaign_events").delete().eq("campaign_id", campaign.id);
+    if (events.length) {
+      await supabase.from("phishing_campaign_events").insert(
+        events.map((event) => ({
+          id: event.id,
+          campaign_id: event.campaignId,
+          organization_id: event.organizationId,
+          user_id: event.userId,
+          department_id: event.departmentId,
+          action: event.action,
+          created_at: event.createdAt,
+          is_archived: event.isArchived,
+          archived_at: event.archivedAt,
+          updated_at: event.updatedAt,
+        }))
+      );
+    }
+
     await supabase
       .from("phishing_campaigns")
       .update({
@@ -2032,5 +2490,3 @@ export function setAdminHistoryArchived(params: {
   Object.assign(completion, archiveState(params.isArchived));
   return true;
 }
-
-
