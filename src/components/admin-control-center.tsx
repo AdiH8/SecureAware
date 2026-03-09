@@ -6,6 +6,7 @@ import {
   AssignmentRule,
   Department,
   HistoryEntry,
+  LearningAuditRow,
   PhishingCampaign,
   PhishingTemplate,
   Profile,
@@ -20,7 +21,15 @@ import {
   MODULE_TEXT_SECTIONS_MIN_COUNT,
 } from "@/lib/module-schemas";
 
-type AdminTab = "users" | "modules" | "tests" | "campaigns" | "scenarios" | "rules" | "history";
+type AdminTab =
+  | "users"
+  | "modules"
+  | "tests"
+  | "campaigns"
+  | "scenarios"
+  | "rules"
+  | "learning"
+  | "history";
 
 interface AdminState {
   users: Profile[];
@@ -33,6 +42,7 @@ interface AdminState {
   campaigns: PhishingCampaign[];
   phishingTemplates: PhishingTemplate[];
   rules: AssignmentRule[];
+  learningRows: LearningAuditRow[];
   history: HistoryEntry[];
 }
 
@@ -42,6 +52,7 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
   { id: "tests", label: "Тестове" },
   { id: "campaigns", label: "Фишинг кампании" },
   { id: "rules", label: "Правила" },
+  { id: "learning", label: "Обучителен прогрес" },
   { id: "history", label: "История" },
 ];
 
@@ -72,6 +83,13 @@ function formatSizeMb(sizeMb: number | null | undefined): string {
   return sizeMb.toFixed(2);
 }
 
+function learningStatusLabel(status: LearningAuditRow["status"]): string {
+  if (status === "COMPLETED") return "Завършен";
+  if (status === "READY_FOR_TEST") return "Готов за тест";
+  if (status === "IN_PROGRESS") return "В процес";
+  return "Не е започнат";
+}
+
 export function AdminControlCenter() {
   const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [state, setState] = useState<AdminState>({
@@ -85,6 +103,7 @@ export function AdminControlCenter() {
     campaigns: [],
     phishingTemplates: [],
     rules: [],
+    learningRows: [],
     history: [],
   });
   const [pending, setPending] = useState(false);
@@ -201,7 +220,7 @@ export function AdminControlCenter() {
     setPending(true);
     setError(null);
     try {
-      const [usersRes, modulesRes, questionsRes, optionsRes, scenariosRes, scenarioOptionsRes, rulesRes, historyRes, campaignsRes] =
+      const [usersRes, modulesRes, questionsRes, optionsRes, scenariosRes, scenarioOptionsRes, rulesRes, historyRes, campaignsRes, learningRes] =
         await Promise.all([
           apiRequest<{ users: Profile[]; departments: Department[] }>("/api/admin/users"),
           apiRequest<{ modules: TrainingModule[] }>("/api/admin/modules"),
@@ -214,6 +233,7 @@ export function AdminControlCenter() {
           apiRequest<{ campaigns: PhishingCampaign[]; templates: PhishingTemplate[] }>(
             "/api/admin/phishing-campaigns"
           ),
+          apiRequest<{ rows: LearningAuditRow[] }>("/api/admin/learning-progress"),
         ]);
 
       setState({
@@ -227,6 +247,7 @@ export function AdminControlCenter() {
         campaigns: campaignsRes.campaigns,
         phishingTemplates: campaignsRes.templates,
         rules: rulesRes.rules,
+        learningRows: learningRes.rows,
         history: historyRes.history,
       });
 
@@ -1049,6 +1070,89 @@ export function AdminControlCenter() {
           <article className="sa-card overflow-x-auto p-4">
             <h2 className="text-xl font-bold">Правила</h2>
             <table className="mt-3 w-full min-w-[700px] text-sm"><thead><tr className="text-left text-zinc-500"><th>Категория</th><th>Trigger</th><th>Модул</th><th>Due</th><th>Retest</th><th>Статус</th><th className="text-right">Действия</th></tr></thead><tbody>{state.rules.map((rule) => <tr key={rule.id} className="border-t border-[var(--line)]"><td className="py-2">{rule.category}</td><td className="py-2">{rule.trigger}</td><td className="py-2">{modulesById[rule.moduleId] ?? rule.moduleId}</td><td className="py-2">{rule.dueInDays}</td><td className="py-2">{rule.retestInDays}</td><td className="py-2">{rule.isArchived ? "Архивирано" : "Активно"}</td><td className="py-2"><div className="flex justify-end gap-2"><button type="button" className="rounded-full border border-[var(--line)] px-3 py-1" onClick={() => setRuleForm({ id: rule.id, category: rule.category, trigger: rule.trigger, moduleId: rule.moduleId, dueInDays: rule.dueInDays, retestInDays: rule.retestInDays })}>Редакция</button><button type="button" className="rounded-full border border-[var(--line)] px-3 py-1" onClick={() => toggleArchive(`/api/admin/rules/${rule.id}`, rule.isArchived)}>{rule.isArchived ? "Възстанови" : "Архивирай"}</button></div></td></tr>)}</tbody></table>
+          </article>
+        </section>
+      ) : null}
+
+      {activeTab === "learning" ? (
+        <section className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <article className="sa-card p-4">
+              <p className="text-xs uppercase text-zinc-500">Записи</p>
+              <p className="mt-2 text-3xl font-bold">{state.learningRows.length}</p>
+            </article>
+            <article className="sa-card p-4">
+              <p className="text-xs uppercase text-zinc-500">Завършени курсове</p>
+              <p className="mt-2 text-3xl font-bold">
+                {state.learningRows.filter((row) => row.status === "COMPLETED").length}
+              </p>
+            </article>
+            <article className="sa-card p-4">
+              <p className="text-xs uppercase text-zinc-500">Общо ретейкове</p>
+              <p className="mt-2 text-3xl font-bold">
+                {state.learningRows.reduce((sum, row) => sum + row.retakeCount, 0)}
+              </p>
+            </article>
+            <article className="sa-card p-4">
+              <p className="text-xs uppercase text-zinc-500">Служители с ретейк</p>
+              <p className="mt-2 text-3xl font-bold">
+                {
+                  new Set(
+                    state.learningRows
+                      .filter((row) => row.retakeCount > 0)
+                      .map((row) => row.userId)
+                  ).size
+                }
+              </p>
+            </article>
+          </div>
+
+          <article className="sa-card overflow-x-auto p-4">
+            <h2 className="text-xl font-bold">Прогрес по служители и курсове</h2>
+            <table className="mt-3 w-full min-w-[1240px] text-sm">
+              <thead>
+                <tr className="text-left text-zinc-500">
+                  <th>Служител</th>
+                  <th>Имейл</th>
+                  <th>Отдел</th>
+                  <th>Курс</th>
+                  <th>Статус</th>
+                  <th>Опити</th>
+                  <th>Ретейкове</th>
+                  <th>Последен резултат</th>
+                  <th>Завършен с резултат</th>
+                  <th>Обновено</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.learningRows.map((row) => (
+                  <tr
+                    key={`${row.userId}_${row.moduleId}`}
+                    className="border-t border-[var(--line)]"
+                  >
+                    <td className="py-2 font-medium">{row.userName}</td>
+                    <td className="py-2">{row.userEmail}</td>
+                    <td className="py-2">{row.departmentName}</td>
+                    <td className="py-2">
+                      {row.moduleTitle}
+                      <span className="ml-2 text-xs text-zinc-500">
+                        {row.moduleIsMini ? "mini" : "основен"}
+                      </span>
+                    </td>
+                    <td className="py-2">{learningStatusLabel(row.status)}</td>
+                    <td className="py-2">{row.attemptsCount}</td>
+                    <td className="py-2">{row.retakeCount}</td>
+                    <td className="py-2">
+                      {row.lastScorePercent === null ? "—" : `${row.lastScorePercent}%`}
+                    </td>
+                    <td className="py-2">
+                      {row.completionScorePercent === null ? "—" : `${row.completionScorePercent}%`}
+                    </td>
+                    <td className="py-2">{new Date(row.updatedAt).toLocaleString("bg-BG")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </article>
         </section>
       ) : null}

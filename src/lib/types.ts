@@ -442,6 +442,27 @@ export interface HistoryEntry {
   isArchived: boolean;
 }
 
+export interface LearningAuditRow {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  departmentId: string;
+  departmentName: string;
+  moduleId: string;
+  moduleTitle: string;
+  moduleCategory: ScenarioCategory;
+  moduleIsMini: boolean;
+  moduleOrder: number;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "READY_FOR_TEST" | "COMPLETED";
+  attemptsCount: number;
+  retakeCount: number;
+  lastScorePercent: number | null;
+  lastPassed: boolean | null;
+  completionScorePercent: number | null;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
 export interface LandingNavItem {
   id: string;
   label: string;

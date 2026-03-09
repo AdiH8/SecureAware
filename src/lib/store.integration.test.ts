@@ -5,6 +5,7 @@ import {
   finishTestSession,
   getEmployeeLearningState,
   getLearningProgressForModule,
+  listLearningAuditRows,
   listTestQuestionsForModule,
   markLearningContentComplete,
   resetStoreForTests,
@@ -97,6 +98,52 @@ describe("employee learning flow integration", () => {
     expect(state.modules.length).toBe(
       state.completedModules.length + state.remainingModules.length + (state.nextModule ? 1 : 0)
     );
+  });
+
+  it("tracks attempts and retakes in learning audit rows", async () => {
+    const userId = "usr_emp_4";
+    const moduleId = "mod_phishing_core";
+
+    markLearningContentComplete({ userId, moduleId, mode: "TEXT" });
+
+    const firstSession = startTestSession({ userId, moduleId });
+    const questions = listTestQuestionsForModule(moduleId).slice(0, firstSession.totalQuestions);
+    questions.forEach((question) => {
+      const wrongOption = question.options.find((option) => !option.isCorrect);
+      if (!wrongOption) throw new Error("Missing wrong option");
+      answerTestQuestion({
+        userId,
+        sessionId: firstSession.id,
+        questionId: question.id,
+        selectedOptionId: wrongOption.id,
+        responseTimeMs: 2100,
+      });
+    });
+    finishTestSession({ userId, sessionId: firstSession.id });
+
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const secondSession = startTestSession({ userId, moduleId });
+    const secondQuestions = listTestQuestionsForModule(moduleId).slice(0, secondSession.totalQuestions);
+    secondQuestions.forEach((question) => {
+      const correctOption = question.options.find((option) => option.isCorrect);
+      if (!correctOption) throw new Error("Missing correct option");
+      answerTestQuestion({
+        userId,
+        sessionId: secondSession.id,
+        questionId: question.id,
+        selectedOptionId: correctOption.id,
+        responseTimeMs: 1700,
+      });
+    });
+    finishTestSession({ userId, sessionId: secondSession.id });
+
+    const rows = await listLearningAuditRows({ userId });
+    const row = rows.find((item) => item.moduleId === moduleId);
+    expect(row).toBeDefined();
+    expect(row?.status).toBe("COMPLETED");
+    expect(row?.attemptsCount).toBe(2);
+    expect(row?.retakeCount).toBe(1);
+    expect(row?.completionScorePercent).not.toBeNull();
   });
 });
 

@@ -33,6 +33,7 @@ import {
   EmployeeLearningModule,
   EmployeeLearningState,
   HistoryEntry,
+  LearningAuditRow,
   LearningMode,
   LearningProgress,
   ManagerCampaignMistake,
@@ -1141,6 +1142,121 @@ function completionRateForUser(userId: string): number {
   const total = getCoreModulesTotal();
   if (!total) return 0;
   return Math.round((getCompletedCoreModulesCount(userId) / total) * 100);
+}
+
+function moduleVisibleInLearningAudit(params: {
+  module: TrainingModule;
+  userId: string;
+  hasProgress: boolean;
+  hasCompletion: boolean;
+}): boolean {
+  if (!params.module.isMini) {
+    return true;
+  }
+  const state = ensureState();
+  const hasAssignment = state.assignments.some(
+    (assignment) =>
+      assignment.userId === params.userId &&
+      assignment.moduleId === params.module.id &&
+      isActive(assignment)
+  );
+  return hasAssignment || params.hasProgress || params.hasCompletion;
+}
+
+function resolveLearningAuditStatus(params: {
+  completionExists: boolean;
+  progress?: LearningProgress;
+}): LearningAuditRow["status"] {
+  if (params.completionExists) {
+    return "COMPLETED";
+  }
+  if (!params.progress) {
+    return "NOT_STARTED";
+  }
+  if (params.progress.testUnlocked) {
+    return "READY_FOR_TEST";
+  }
+  if (params.progress.videoCompleted || params.progress.textCompleted || params.progress.attemptsCount > 0) {
+    return "IN_PROGRESS";
+  }
+  return "NOT_STARTED";
+}
+
+export async function listLearningAuditRows(params?: {
+  departmentId?: string;
+  userId?: string;
+}): Promise<LearningAuditRow[]> {
+  const state = ensureState();
+  const users = await listActiveEmployeesResolved({ departmentId: params?.departmentId });
+  const usersFiltered = users.filter((user) => !params?.userId || user.id === params.userId);
+  const modules = state.modules
+    .filter((module) => isActive(module))
+    .sort((a, b) => a.order - b.order);
+
+  const progressByKey = new Map<string, LearningProgress>();
+  state.learningProgress.forEach((progress) => {
+    progressByKey.set(`${progress.userId}::${progress.moduleId}`, progress);
+  });
+
+  const completionsByKey = new Map<string, (typeof state.moduleCompletions)[number]>();
+  state.moduleCompletions
+    .filter((completion) => isActive(completion))
+    .forEach((completion) => {
+      completionsByKey.set(`${completion.userId}::${completion.moduleId}`, completion);
+    });
+
+  const departmentById = new Map(state.departments.map((department) => [department.id, department.name]));
+  const rows: LearningAuditRow[] = [];
+
+  usersFiltered.forEach((user) => {
+    modules.forEach((module) => {
+      const key = `${user.id}::${module.id}`;
+      const progress = progressByKey.get(key);
+      const completion = completionsByKey.get(key);
+      const isVisible = moduleVisibleInLearningAudit({
+        module,
+        userId: user.id,
+        hasProgress: Boolean(progress),
+        hasCompletion: Boolean(completion),
+      });
+      if (!isVisible) {
+        return;
+      }
+
+      const attemptsCount = progress?.attemptsCount ?? 0;
+      rows.push({
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        departmentId: user.departmentId,
+        departmentName: departmentById.get(user.departmentId) ?? user.departmentId,
+        moduleId: module.id,
+        moduleTitle: module.title,
+        moduleCategory: module.category,
+        moduleIsMini: module.isMini,
+        moduleOrder: module.order,
+        status: resolveLearningAuditStatus({
+          completionExists: Boolean(completion),
+          progress,
+        }),
+        attemptsCount,
+        retakeCount: Math.max(0, attemptsCount - 1),
+        lastScorePercent: progress?.lastScorePercent ?? null,
+        lastPassed: progress?.lastPassed ?? null,
+        completionScorePercent: completion?.scorePercent ?? null,
+        completedAt: completion?.completedAt ?? null,
+        updatedAt: progress?.updatedAt ?? completion?.updatedAt ?? user.updatedAt,
+      });
+    });
+  });
+
+  return rows.sort((a, b) => {
+    const byDepartment = a.departmentName.localeCompare(b.departmentName, "bg");
+    if (byDepartment !== 0) return byDepartment;
+    const byUser = a.userName.localeCompare(b.userName, "bg");
+    if (byUser !== 0) return byUser;
+    return a.moduleOrder - b.moduleOrder;
+  });
 }
 
 function riskBandFromCampaignAction(

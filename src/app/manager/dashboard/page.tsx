@@ -3,7 +3,11 @@
 import { AppShell } from "@/components/app-shell";
 import { RiskBadge } from "@/components/risk-badge";
 import { requireSession } from "@/lib/auth";
-import { getManagerDashboardMetricsV2, getUserByIdResolved } from "@/lib/data/store";
+import {
+  getManagerDashboardMetricsV2,
+  getUserByIdResolved,
+  listLearningAuditRows,
+} from "@/lib/data/store";
 import { ManagerUserRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +26,30 @@ export default async function ManagerDashboardPage() {
   if (!user) return null;
 
   const metrics = await getManagerDashboardMetricsV2({ range: "30d" });
+  const learningRows = await listLearningAuditRows();
+  const topRetakes = Array.from(
+    learningRows.reduce((map, row) => {
+      const current = map.get(row.userId) ?? {
+        userId: row.userId,
+        name: row.userName,
+        departmentName: row.departmentName,
+        retakes: 0,
+        completed: 0,
+        total: 0,
+      };
+      current.retakes += row.retakeCount;
+      current.total += 1;
+      if (row.status === "COMPLETED") {
+        current.completed += 1;
+      }
+      map.set(row.userId, current);
+      return map;
+    }, new Map<string, { userId: string; name: string; departmentName: string; retakes: number; completed: number; total: number }>())
+  )
+    .map(([, entry]) => entry)
+    .filter((entry) => entry.retakes > 0)
+    .sort((a, b) => b.retakes - a.retakes)
+    .slice(0, 6);
 
   return (
     <AppShell role={session.role} name={user.name}>
@@ -30,9 +58,9 @@ export default async function ManagerDashboardPage() {
         <article className="sa-card p-4"><p className="text-xs text-zinc-500">Отворени</p><p className="mt-1 text-3xl font-bold">{metrics.openedCount}</p></article>
         <article className="sa-card p-4"><p className="text-xs text-zinc-500">Кликнали</p><p className="mt-1 text-3xl font-bold">{metrics.clickedCount}</p></article>
         <article className="sa-card p-4"><p className="text-xs text-zinc-500">Докладвали</p><p className="mt-1 text-3xl font-bold">{metrics.reportedCount}</p></article>
-        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Click rate</p><p className="mt-1 text-3xl font-bold">{metrics.clickRate}%</p></article>
-        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Report rate</p><p className="mt-1 text-3xl font-bold">{metrics.reportRate}%</p></article>
-        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Learning completion</p><p className="mt-1 text-3xl font-bold">{metrics.learningCompletionRate}%</p></article>
+        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Процент клик</p><p className="mt-1 text-3xl font-bold">{metrics.clickRate}%</p></article>
+        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Процент докладване</p><p className="mt-1 text-3xl font-bold">{metrics.reportRate}%</p></article>
+        <article className="sa-card p-4"><p className="text-xs text-zinc-500">Завършени обучения</p><p className="mt-1 text-3xl font-bold">{metrics.learningCompletionRate}%</p></article>
       </section>
 
       <section className="sa-card mt-4 p-5">
@@ -43,9 +71,9 @@ export default async function ManagerDashboardPage() {
               <tr className="text-left text-zinc-500">
                 <th className="pb-2">Отдел</th>
                 <th className="pb-2">Изпратени</th>
-                <th className="pb-2">Click rate</th>
-                <th className="pb-2">Report rate</th>
-                <th className="pb-2">Completion rate</th>
+                <th className="pb-2">Процент клик</th>
+                <th className="pb-2">Процент докладване</th>
+                <th className="pb-2">Процент завършени</th>
                 <th className="pb-2">Детайли</th>
               </tr>
             </thead>
@@ -100,7 +128,7 @@ export default async function ManagerDashboardPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <RiskBadge risk={userRisk.riskBand} />
                     <span>{lastActionLabel(userRisk.lastCampaignAction)}</span>
-                    <span>Completion: {userRisk.completionRate}%</span>
+                    <span>Завършени: {userRisk.completionRate}%</span>
                   </div>
                 </div>
               ))
@@ -109,6 +137,45 @@ export default async function ManagerDashboardPage() {
             )}
           </div>
         </article>
+      </section>
+
+      <section className="sa-card mt-4 p-5">
+        <h3 className="text-xl font-bold">Ретейкове по служители</h3>
+        <p className="mt-1 text-sm text-zinc-600">
+          Преглед на служителите с най-много повторни опити по тестовете.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="text-left text-zinc-500">
+                <th className="pb-2">Служител</th>
+                <th className="pb-2">Отдел</th>
+                <th className="pb-2">Ретейкове</th>
+                <th className="pb-2">Завършени курсове</th>
+                <th className="pb-2">Общо курсове</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topRetakes.length ? (
+                topRetakes.map((entry) => (
+                  <tr key={entry.userId} className="border-t border-[var(--line)]">
+                    <td className="py-3 font-semibold">{entry.name}</td>
+                    <td className="py-3">{entry.departmentName}</td>
+                    <td className="py-3">{entry.retakes}</td>
+                    <td className="py-3">{entry.completed}</td>
+                    <td className="py-3">{entry.total}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-3 text-zinc-600">
+                    Все още няма ретейкове по обучения.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   );
