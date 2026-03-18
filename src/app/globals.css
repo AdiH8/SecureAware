@@ -133,3 +133,90 @@ h4 {
     transition: none;
   }
 }
+
+.sa-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.sa-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.sa-table thead th {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: #71717a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: left;
+  vertical-align: bottom;
+  white-space: nowrap;
+  background: rgba(244, 244, 245, 0.76);
+}
+
+.sa-table tbody td {
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.sa-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.sa-table .sa-cell-title {
+  display: block;
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+.sa-table .sa-cell-subtitle {
+  display: block;
+  margin-top: 0.2rem;
+  color: #71717a;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.sa-table .sa-cell-number {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sa-badge-soft {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(244, 244, 245, 0.9);
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sa-badge-soft.is-success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.sa-badge-soft.is-warning {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.sa-badge-soft.is-neutral {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+  color: #52525b;
+}

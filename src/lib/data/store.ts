@@ -1349,25 +1349,33 @@ async function listCampaignEventsResolved(params: {
   return events;
 }
 
-function getCoreModulesTotal(): number {
-  const state = ensureState();
-  return state.modules.filter((module) => isActive(module) && !module.isMini).length;
-}
+function buildLearningSummaryByUser(
+  rows: LearningAuditRow[]
+): Map<string, { completedModules: number; totalModules: number; completionRate: number }> {
+  const grouped = new Map<string, { completedModules: number; totalModules: number; completionRate: number }>();
 
-function getCompletedCoreModulesCount(userId: string): number {
-  const state = ensureState();
-  const coreModuleIds = new Set(
-    state.modules.filter((module) => isActive(module) && !module.isMini).map((module) => module.id)
-  );
-  return state.moduleCompletions.filter(
-    (item) => item.userId === userId && coreModuleIds.has(item.moduleId) && isActive(item)
-  ).length;
-}
+  rows
+    .filter((row) => !row.moduleIsMini)
+    .forEach((row) => {
+      const current = grouped.get(row.userId) ?? {
+        completedModules: 0,
+        totalModules: 0,
+        completionRate: 0,
+      };
+      current.totalModules += 1;
+      if (row.status === "COMPLETED") {
+        current.completedModules += 1;
+      }
+      grouped.set(row.userId, current);
+    });
 
-function completionRateForUser(userId: string): number {
-  const total = getCoreModulesTotal();
-  if (!total) return 0;
-  return Math.round((getCompletedCoreModulesCount(userId) / total) * 100);
+  grouped.forEach((value) => {
+    value.completionRate = value.totalModules
+      ? Math.round((value.completedModules / value.totalModules) * 100)
+      : 0;
+  });
+
+  return grouped;
 }
 
 function moduleVisibleInLearningAudit(params: {
@@ -1512,6 +1520,14 @@ function actionLabel(action: PhishingCampaignAction): string {
 function buildManagerUserRows(params: {
   profiles: Profile[];
   events: PhishingCampaignEvent[];
+  learningSummaryByUser: Map<
+    string,
+    {
+      completedModules: number;
+      totalModules: number;
+      completionRate: number;
+    }
+  >;
   departmentId?: string;
 }): ManagerUserRow[] {
   const state = ensureState();
@@ -1527,9 +1543,14 @@ function buildManagerUserRows(params: {
       const lastEvent = params.events
         .filter((event) => event.userId === profile.id)
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-      const completionRate = completionRateForUser(profile.id);
-      const totalModules = getCoreModulesTotal();
-      const completedModules = getCompletedCoreModulesCount(profile.id);
+      const learningSummary = params.learningSummaryByUser.get(profile.id) ?? {
+        completedModules: 0,
+        totalModules: 0,
+        completionRate: 0,
+      };
+      const completionRate = learningSummary.completionRate;
+      const totalModules = learningSummary.totalModules;
+      const completedModules = learningSummary.completedModules;
       const departmentName =
         state.departments.find((department) => department.id === profile.departmentId)?.name ??
         profile.departmentId;
@@ -1611,7 +1632,7 @@ export async function getManagerDashboardMetricsV2(params?: {
 }): Promise<ManagerDashboardMetricsV2> {
   const state = ensureState();
   const range = params?.range ?? "30d";
-  const [profiles, events] = await Promise.all([
+  const [profiles, events, learningRows] = await Promise.all([
     listActiveEmployeesResolved({
       departmentId: params?.departmentId,
     }),
@@ -1619,12 +1640,16 @@ export async function getManagerDashboardMetricsV2(params?: {
       departmentId: params?.departmentId,
       range,
     }),
-    listModuleCompletionsResolved(),
+    listLearningAuditRows({
+      departmentId: params?.departmentId,
+    }),
   ]);
+  const learningSummaryByUser = buildLearningSummaryByUser(learningRows);
 
   const users = buildManagerUserRows({
     profiles,
     events,
+    learningSummaryByUser,
     departmentId: params?.departmentId,
   });
   const sentCount = events.length;
@@ -1664,7 +1689,7 @@ export async function getManagerDepartmentMetricsV2(params: {
 }): Promise<ManagerDepartmentMetricsV2> {
   const state = ensureState();
   const range = params.range ?? "30d";
-  const [profiles, events] = await Promise.all([
+  const [profiles, events, learningRows] = await Promise.all([
     listActiveEmployeesResolved({
       departmentId: params.departmentId,
     }),
@@ -1672,11 +1697,15 @@ export async function getManagerDepartmentMetricsV2(params: {
       departmentId: params.departmentId,
       range,
     }),
-    listModuleCompletionsResolved(),
+    listLearningAuditRows({
+      departmentId: params.departmentId,
+    }),
   ]);
+  const learningSummaryByUser = buildLearningSummaryByUser(learningRows);
   const users = buildManagerUserRows({
     profiles,
     events,
+    learningSummaryByUser,
     departmentId: params.departmentId,
   });
   const breakdown = aggregateDepartmentBreakdown({

@@ -676,28 +676,50 @@ export function AdminControlCenter() {
             </div>
           </article>
 
-          <article className="sa-card overflow-x-auto p-4">
-            <h2 className="text-xl font-bold">Служители</h2>
-            <table className="mt-3 w-full min-w-[720px] text-sm">
-              <thead><tr className="text-left text-zinc-500"><th>Име</th><th>Имейл</th><th>Отдел</th><th>Роля</th><th>Статус</th><th className="text-right">Действия</th></tr></thead>
-              <tbody>
-                {state.users.map((user) => (
-                  <tr key={user.id} className="border-t border-[var(--line)]">
-                    <td className="py-2">{user.name}</td>
-                    <td className="py-2">{user.email}</td>
-                    <td className="py-2">{departmentsById[user.departmentId] ?? user.departmentId}</td>
-                    <td className="py-2">{user.role}</td>
-                    <td className="py-2">{user.isArchived ? "Архивиран" : "Активен"}</td>
-                    <td className="py-2">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1" onClick={() => setUserForm({ id: user.id, name: user.name, email: user.email, departmentId: user.departmentId, role: user.role === "MANAGER" ? "MANAGER" : "EMPLOYEE" })}>Редакция</button>
-                        <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1" onClick={() => toggleArchive(`/api/admin/users/${user.id}`, user.isArchived)}>{user.isArchived ? "Възстанови" : "Архивирай"}</button>
-                      </div>
-                    </td>
+          <article className="sa-card p-4">
+            <h2 className="text-xl font-bold">Потребители</h2>
+            <div className="sa-table-wrap mt-3">
+              <table className="sa-table text-sm">
+                <thead>
+                  <tr>
+                    <th className="w-[24%]">Име</th>
+                    <th className="w-[30%]">Имейл</th>
+                    <th className="w-[16%]">Отдел</th>
+                    <th className="w-[12%]">Роля</th>
+                    <th className="w-[18%]">Статус / Действия</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {state.users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <span className="sa-cell-title">{user.name}</span>
+                      </td>
+                      <td>
+                        <span className="sa-cell-title break-all font-normal text-zinc-700">{user.email}</span>
+                      </td>
+                      <td>
+                        <span className="sa-cell-title">{departmentsById[user.departmentId] ?? user.departmentId}</span>
+                      </td>
+                      <td>
+                        <span className={`sa-badge-soft ${user.role === "MANAGER" ? "is-warning" : "is-neutral"}`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`sa-badge-soft ${user.isArchived ? "is-neutral" : "is-success"}`}>
+                            {user.isArchived ? "Архивиран" : "Активен"}
+                          </span>
+                          <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1 text-xs" onClick={() => setUserForm({ id: user.id, name: user.name, email: user.email, departmentId: user.departmentId, role: user.role === "MANAGER" ? "MANAGER" : "EMPLOYEE" })}>Редакция</button>
+                          <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1 text-xs" onClick={() => toggleArchive(`/api/admin/users/${user.id}`, user.isArchived)}>{user.isArchived ? "Възстанови" : "Архивирай"}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </article>
         </section>
       ) : null}

@@ -28,6 +28,12 @@ function learningStatusLabel(status: "NOT_STARTED" | "IN_PROGRESS" | "READY_FOR_
   return "Не е започнат";
 }
 
+function learningStatusClass(status: "NOT_STARTED" | "IN_PROGRESS" | "READY_FOR_TEST" | "COMPLETED"): string {
+  if (status === "COMPLETED") return "sa-badge-soft is-success";
+  if (status === "READY_FOR_TEST") return "sa-badge-soft is-warning";
+  return "sa-badge-soft is-neutral";
+}
+
 export default async function DepartmentPage({
   params,
 }: {
@@ -65,29 +71,36 @@ export default async function DepartmentPage({
 
       <section className="sa-card mt-4 p-5">
         <h3 className="text-xl font-bold">Служители и статус</h3>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+        <div className="sa-table-wrap mt-4">
+          <table className="sa-table text-sm">
             <thead>
               <tr className="text-left text-zinc-500">
-                <th className="pb-2">Служител</th>
-                <th className="pb-2">Имейл</th>
-                <th className="pb-2">Последно действие</th>
-                <th className="pb-2">Рисков профил</th>
-                <th className="pb-2">Завършени</th>
-                <th className="pb-2">Общо</th>
-                <th className="pb-2">Процент завършени</th>
+                <th className="w-[24%]">Служител</th>
+                <th className="w-[19%]">Последно действие</th>
+                <th className="w-[14%]">Риск</th>
+                <th className="w-[18%]">Завършени</th>
+                <th className="w-[12%]">Процент</th>
+                <th className="w-[13%]">Общо</th>
               </tr>
             </thead>
             <tbody>
               {metrics.users.map((employee) => (
                 <tr key={employee.userId} className="border-t border-[var(--line)]">
-                  <td className="py-3 font-semibold">{employee.name}</td>
-                  <td className="py-3">{employee.email}</td>
-                  <td className="py-3">{lastActionLabel(employee.lastCampaignAction)}</td>
-                  <td className="py-3"><RiskBadge risk={employee.riskBand} /></td>
-                  <td className="py-3">{employee.completedModules}</td>
-                  <td className="py-3">{employee.totalModules}</td>
-                  <td className="py-3">{employee.completionRate}%</td>
+                  <td>
+                    <span className="sa-cell-title">{employee.name}</span>
+                    <span className="sa-cell-subtitle">{employee.email}</span>
+                  </td>
+                  <td>
+                    <span className="sa-cell-title">{lastActionLabel(employee.lastCampaignAction)}</span>
+                    <span className="sa-cell-subtitle">{employee.departmentName}</span>
+                  </td>
+                  <td><RiskBadge risk={employee.riskBand} /></td>
+                  <td className="sa-cell-number">
+                    <span className="sa-cell-title">{employee.completedModules} от {employee.totalModules}</span>
+                    <span className="sa-cell-subtitle">Основни модули</span>
+                  </td>
+                  <td className="sa-cell-number font-semibold">{employee.completionRate}%</td>
+                  <td className="sa-cell-number">{employee.totalModules}</td>
                 </tr>
               ))}
             </tbody>
@@ -97,33 +110,45 @@ export default async function DepartmentPage({
 
       <section className="sa-card mt-4 p-5">
         <h3 className="text-xl font-bold">Прогрес по курсове и ретейкове</h3>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[1200px] text-sm">
+        <div className="sa-table-wrap mt-4">
+          <table className="sa-table text-sm">
             <thead>
               <tr className="text-left text-zinc-500">
-                <th className="pb-2">Служител</th>
-                <th className="pb-2">Курс</th>
-                <th className="pb-2">Тип</th>
-                <th className="pb-2">Статус</th>
-                <th className="pb-2">Опити</th>
-                <th className="pb-2">Ретейкове</th>
-                <th className="pb-2">Последен резултат</th>
-                <th className="pb-2">Завършен с резултат</th>
-                <th className="pb-2">Последна активност</th>
+                <th className="w-[18%]">Служител</th>
+                <th className="w-[28%]">Курс</th>
+                <th className="w-[14%]">Статус</th>
+                <th className="w-[12%]">Опити</th>
+                <th className="w-[12%]">Резултати</th>
+                <th className="w-[16%]">Последна активност</th>
               </tr>
             </thead>
             <tbody>
               {learningRows.map((row) => (
                 <tr key={`${row.userId}_${row.moduleId}`} className="border-t border-[var(--line)]">
-                  <td className="py-3 font-semibold">{row.userName}</td>
-                  <td className="py-3">{row.moduleTitle}</td>
-                  <td className="py-3">{row.moduleIsMini ? "Мини" : "Основен"}</td>
-                  <td className="py-3">{learningStatusLabel(row.status)}</td>
-                  <td className="py-3">{row.attemptsCount}</td>
-                  <td className="py-3">{row.retakeCount}</td>
-                  <td className="py-3">{row.lastScorePercent === null ? "—" : `${row.lastScorePercent}%`}</td>
-                  <td className="py-3">{row.completionScorePercent === null ? "—" : `${row.completionScorePercent}%`}</td>
-                  <td className="py-3">{new Date(row.updatedAt).toLocaleString("bg-BG")}</td>
+                  <td>
+                    <span className="sa-cell-title">{row.userName}</span>
+                    <span className="sa-cell-subtitle">{row.departmentName}</span>
+                  </td>
+                  <td>
+                    <span className="sa-cell-title">{row.moduleTitle}</span>
+                    <span className="sa-cell-subtitle">{row.moduleIsMini ? "Мини модул" : "Основен модул"}</span>
+                  </td>
+                  <td>
+                    <span className={learningStatusClass(row.status)}>{learningStatusLabel(row.status)}</span>
+                  </td>
+                  <td className="sa-cell-number">
+                    <span className="sa-cell-title">{row.attemptsCount} опита</span>
+                    <span className="sa-cell-subtitle">Ретейкове: {row.retakeCount}</span>
+                  </td>
+                  <td className="sa-cell-number">
+                    <span className="sa-cell-title">
+                      {row.lastScorePercent === null ? "Последен: —" : `Последен: ${row.lastScorePercent}%`}
+                    </span>
+                    <span className="sa-cell-subtitle">
+                      {row.completionScorePercent === null ? "Финален: —" : `Финален: ${row.completionScorePercent}%`}
+                    </span>
+                  </td>
+                  <td className="sa-cell-number">{new Date(row.updatedAt).toLocaleDateString("bg-BG")}</td>
                 </tr>
               ))}
             </tbody>
