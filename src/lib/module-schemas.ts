@@ -1,5 +1,7 @@
 ﻿import { z } from "zod";
 
+import { extractYoutubeVideoId } from "@/lib/youtube";
+
 export const MODULE_TEXT_SECTIONS_MIN_COUNT = 6;
 export const MODULE_TEXT_SECTION_MIN_LENGTH = 350;
 
@@ -20,6 +22,20 @@ export const moduleTextSectionsSchema = z
 
 const videoMockFileNameSchema = z.string().trim().min(1).nullable().optional();
 const videoMockFileSizeSchema = z.number().nonnegative().nullable().optional();
+const rawYoutubeUrlSchema = z.union([z.string(), z.null()]).optional();
+
+function normalizeYoutubeInput<T extends { videoYoutubeUrl?: string | null }>(data: T) {
+  const normalizedUrl = Object.prototype.hasOwnProperty.call(data, "videoYoutubeUrl")
+    ? data.videoYoutubeUrl?.trim() || null
+    : undefined;
+
+  return {
+    ...data,
+    videoYoutubeUrl: normalizedUrl,
+    videoYoutubeId:
+      normalizedUrl === undefined ? undefined : normalizedUrl ? extractYoutubeVideoId(normalizedUrl) : null,
+  };
+}
 
 export const adminModuleCreateSchema = z.object({
   title: z.string().trim().min(2),
@@ -28,6 +44,7 @@ export const adminModuleCreateSchema = z.object({
   order: z.number().int().nonnegative(),
   durationMinutes: z.number().int().positive(),
   videoDurationSec: z.number().int().positive(),
+  videoYoutubeUrl: rawYoutubeUrlSchema,
   videoMockFileName: videoMockFileNameSchema,
   videoMockFileSizeMb: videoMockFileSizeSchema,
   questionCount: z.number().int().min(1).max(50),
@@ -35,7 +52,16 @@ export const adminModuleCreateSchema = z.object({
   description: z.string().trim().min(5),
   bulletPoints: z.array(z.string().trim().min(1)).min(1),
   textSections: moduleTextSectionsSchema,
-});
+}).superRefine((data, ctx) => {
+  const normalizedUrl = data.videoYoutubeUrl?.trim();
+  if (normalizedUrl && !extractYoutubeVideoId(normalizedUrl)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["videoYoutubeUrl"],
+      message: "Въведи валиден YouTube линк.",
+    });
+  }
+}).transform((data) => normalizeYoutubeInput(data));
 
 export const adminModuleUpdateSchema = z.object({
   title: z.string().trim().min(2).optional(),
@@ -44,6 +70,7 @@ export const adminModuleUpdateSchema = z.object({
   order: z.number().int().nonnegative().optional(),
   durationMinutes: z.number().int().positive().optional(),
   videoDurationSec: z.number().int().positive().optional(),
+  videoYoutubeUrl: rawYoutubeUrlSchema,
   videoMockFileName: videoMockFileNameSchema,
   videoMockFileSizeMb: videoMockFileSizeSchema,
   questionCount: z.number().int().min(1).max(50).optional(),
@@ -52,4 +79,13 @@ export const adminModuleUpdateSchema = z.object({
   bulletPoints: z.array(z.string().trim().min(1)).min(1).optional(),
   textSections: moduleTextSectionsSchema.optional(),
   isArchived: z.boolean().optional(),
-});
+}).superRefine((data, ctx) => {
+  const normalizedUrl = data.videoYoutubeUrl?.trim();
+  if (normalizedUrl && !extractYoutubeVideoId(normalizedUrl)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["videoYoutubeUrl"],
+      message: "Въведи валиден YouTube линк.",
+    });
+  }
+}).transform((data) => normalizeYoutubeInput(data));

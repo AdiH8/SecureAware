@@ -85,6 +85,8 @@ type ModuleBlueprint = Omit<
   | "testQuestionIds"
   | "questionCount"
   | "passThresholdPercent"
+  | "videoYoutubeUrl"
+  | "videoYoutubeId"
   | "videoMockFileName"
   | "videoMockFileSizeMb"
   | "isArchived"
@@ -1046,6 +1048,43 @@ function buildQuestionsForModule(module: ModuleBlueprint): {
   return { questionIds, questions, options };
 }
 
+const MODULE_YOUTUBE_VIDEOS: Record<
+  string,
+  {
+    url: string;
+    id: string;
+  }
+> = {
+  mod_phishing_core: {
+    url: "https://www.youtube.com/watch?v=-0Ql6xnNj7g",
+    id: "-0Ql6xnNj7g",
+  },
+  mod_url_core: {
+    url: "https://www.youtube.com/watch?v=dfIw4Tiy1jY",
+    id: "dfIw4Tiy1jY",
+  },
+  mod_social_core: {
+    url: "https://www.youtube.com/watch?v=g7CLAvAlZJ8",
+    id: "g7CLAvAlZJ8",
+  },
+  mini_phishing: {
+    url: "https://www.youtube.com/watch?v=-0Ql6xnNj7g",
+    id: "-0Ql6xnNj7g",
+  },
+  mini_url: {
+    url: "https://www.youtube.com/watch?v=dfIw4Tiy1jY",
+    id: "dfIw4Tiy1jY",
+  },
+  mini_social: {
+    url: "https://www.youtube.com/watch?v=g7CLAvAlZJ8",
+    id: "g7CLAvAlZJ8",
+  },
+  mod_legacy_archived: {
+    url: "https://www.youtube.com/watch?v=sdpxddDzXfE",
+    id: "sdpxddDzXfE",
+  },
+};
+
 function buildModulesAndTests(): {
   modules: TrainingModule[];
   testQuestions: TestQuestion[];
@@ -1057,11 +1096,14 @@ function buildModulesAndTests(): {
 
   MODULE_BLUEPRINTS.forEach((blueprint) => {
     const built = buildQuestionsForModule(blueprint);
+    const youtubeVideo = MODULE_YOUTUBE_VIDEOS[blueprint.id] ?? null;
     modules.push({
       ...blueprint,
       questionCount: 10,
       passThresholdPercent: 80,
       textSections: buildLongLessonSections(blueprint),
+      videoYoutubeUrl: youtubeVideo?.url ?? null,
+      videoYoutubeId: youtubeVideo?.id ?? null,
       videoMockFileName: null,
       videoMockFileSizeMb: null,
       testQuestionIds: built.questionIds,
@@ -1081,6 +1123,8 @@ function buildModulesAndTests(): {
     order: 999,
     durationMinutes: 5,
     videoDurationSec: 240,
+    videoYoutubeUrl: MODULE_YOUTUBE_VIDEOS.mod_legacy_archived.url,
+    videoYoutubeId: MODULE_YOUTUBE_VIDEOS.mod_legacy_archived.id,
     videoMockFileName: null,
     videoMockFileSizeMb: null,
     questionCount: 5,

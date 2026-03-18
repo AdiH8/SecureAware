@@ -2245,6 +2245,8 @@ export async function createAdminModule(input: AdminModuleInput): Promise<Traini
     order: input.order,
     durationMinutes: input.durationMinutes,
     videoDurationSec: input.videoDurationSec,
+    videoYoutubeUrl: input.videoYoutubeUrl ?? null,
+    videoYoutubeId: input.videoYoutubeId ?? null,
     videoMockFileName: input.videoMockFileName ?? null,
     videoMockFileSizeMb: input.videoMockFileSizeMb ?? null,
     questionCount: input.questionCount,
@@ -2268,6 +2270,8 @@ export async function createAdminModule(input: AdminModuleInput): Promise<Traini
       order_index: created.order,
       duration_minutes: created.durationMinutes,
       video_duration_sec: created.videoDurationSec,
+      video_youtube_url: created.videoYoutubeUrl,
+      video_youtube_id: created.videoYoutubeId,
       video_mock_file_name: created.videoMockFileName,
       video_mock_file_size_mb: created.videoMockFileSizeMb,
       question_count: created.questionCount,
@@ -2301,6 +2305,8 @@ export async function updateAdminModule(
   if (patch.order !== undefined) trainingModule.order = patch.order;
   if (patch.durationMinutes !== undefined) trainingModule.durationMinutes = patch.durationMinutes;
   if (patch.videoDurationSec !== undefined) trainingModule.videoDurationSec = patch.videoDurationSec;
+  if (patch.videoYoutubeUrl !== undefined) trainingModule.videoYoutubeUrl = patch.videoYoutubeUrl;
+  if (patch.videoYoutubeId !== undefined) trainingModule.videoYoutubeId = patch.videoYoutubeId;
   if (patch.videoMockFileName !== undefined) trainingModule.videoMockFileName = patch.videoMockFileName;
   if (patch.videoMockFileSizeMb !== undefined) {
     trainingModule.videoMockFileSizeMb = patch.videoMockFileSizeMb;
@@ -2324,6 +2330,8 @@ export async function updateAdminModule(
       order_index: trainingModule.order,
       duration_minutes: trainingModule.durationMinutes,
       video_duration_sec: trainingModule.videoDurationSec,
+      video_youtube_url: trainingModule.videoYoutubeUrl,
+      video_youtube_id: trainingModule.videoYoutubeId,
       video_mock_file_name: trainingModule.videoMockFileName,
       video_mock_file_size_mb: trainingModule.videoMockFileSizeMb,
       question_count: trainingModule.questionCount,

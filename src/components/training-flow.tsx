@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { LearningProgress, TestQuestionWithOptions, TrainingModule } from "@/lib/types";
+import { buildYoutubeEmbedUrl } from "@/lib/youtube";
 
 interface TrainingFlowProps {
   module: TrainingModule;
@@ -70,6 +71,7 @@ export function TrainingFlow({ module, initialProgress, questions }: TrainingFlo
 
   const currentQuestion = session ? questions[session.currentIndex] : null;
   const isReadyForTest = progress.testUnlocked;
+  const youtubeEmbedUrl = module.videoYoutubeId ? buildYoutubeEmbedUrl(module.videoYoutubeId) : null;
 
   const markContentDone = async (mode: "VIDEO" | "TEXT") => {
     setPending(true);
@@ -181,19 +183,33 @@ export function TrainingFlow({ module, initialProgress, questions }: TrainingFlo
           <div className="mt-4 space-y-4">
             <div className="rounded-2xl border border-[var(--line)] p-4">
               <p className="text-xs font-semibold uppercase text-zinc-500">Видео вариант</p>
-              <div className="mt-3 rounded-xl bg-zinc-900 px-4 py-10 text-center text-white">
-                {module.videoMockFileName ? (
-                  <div className="space-y-2">
-                    <p className="text-sm uppercase tracking-wide text-zinc-300">Mock видео файл</p>
-                    <p className="text-base font-semibold">
-                      Видео: {module.videoMockFileName} · {formatVideoSize(module.videoMockFileSizeMb)} MB ·{" "}
-                      {formatDurationMinutes(module.videoDurationSec)} мин
-                    </p>
+              {youtubeEmbedUrl ? (
+                <div className="mt-3 overflow-hidden rounded-xl border border-[var(--line)] bg-black">
+                  <div className="aspect-video w-full">
+                    <iframe
+                      src={youtubeEmbedUrl}
+                      title={`Видео обучение: ${module.title}`}
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
                   </div>
-                ) : (
-                  <>Видео визуализация ({formatDurationMinutes(module.videoDurationSec)} мин)</>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl bg-zinc-900 px-4 py-10 text-center text-white">
+                  {module.videoMockFileName ? (
+                    <div className="space-y-2">
+                      <p className="text-sm uppercase tracking-wide text-zinc-300">Mock видео файл</p>
+                      <p className="text-base font-semibold">
+                        Видео: {module.videoMockFileName} · {formatVideoSize(module.videoMockFileSizeMb)} MB ·{" "}
+                        {formatDurationMinutes(module.videoDurationSec)} мин
+                      </p>
+                    </div>
+                  ) : (
+                    <>Видео визуализация ({formatDurationMinutes(module.videoDurationSec)} мин)</>
+                  )}
+                </div>
+              )}
               <button
                 className="mt-4 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 disabled={pending}

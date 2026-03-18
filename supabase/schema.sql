@@ -29,6 +29,8 @@ create table if not exists modules (
   order_index int not null default 1,
   duration_minutes int not null,
   video_duration_sec int not null default 300,
+  video_youtube_url text,
+  video_youtube_id text,
   video_mock_file_name text,
   video_mock_file_size_mb numeric,
   question_count int not null default 10,

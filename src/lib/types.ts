@@ -68,6 +68,8 @@ export interface TrainingModule extends Archivable {
   order: number;
   durationMinutes: number;
   videoDurationSec: number;
+  videoYoutubeUrl: string | null;
+  videoYoutubeId: string | null;
   videoMockFileName: string | null;
   videoMockFileSizeMb: number | null;
   questionCount: number;
@@ -372,6 +374,8 @@ export interface AdminModuleInput {
   order: number;
   durationMinutes: number;
   videoDurationSec: number;
+  videoYoutubeUrl?: string | null;
+  videoYoutubeId?: string | null;
   videoMockFileName?: string | null;
   videoMockFileSizeMb?: number | null;
   questionCount: number;

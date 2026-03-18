@@ -1,6 +1,8 @@
-﻿"use client";
+"use client";
 
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+
+import { buildYoutubeEmbedUrl, extractYoutubeVideoId } from "@/lib/youtube";
 
 import {
   AssignmentRule,
@@ -128,6 +130,8 @@ export function AdminControlCenter() {
     videoDurationSec: 360,
     questionCount: 10,
     passThresholdPercent: 80,
+    videoYoutubeUrl: "",
+    videoYoutubeId: null as string | null,
     videoMockFileName: null as string | null,
     videoMockFileSizeMb: null as number | null,
     description: "",
@@ -202,6 +206,7 @@ export function AdminControlCenter() {
     () => Object.fromEntries(state.departments.map((department) => [department.id, department.name])),
     [state.departments]
   );
+  const moduleYoutubePreviewId = extractYoutubeVideoId(moduleForm.videoYoutubeUrl);
   const campaignTotals = useMemo(() => {
     return state.campaigns.reduce(
       (acc, campaign) => {
@@ -346,6 +351,7 @@ export function AdminControlCenter() {
       order: moduleForm.order,
       durationMinutes: moduleForm.durationMinutes,
       videoDurationSec: moduleForm.videoDurationSec,
+      videoYoutubeUrl: moduleForm.videoYoutubeUrl || null,
       questionCount: moduleForm.questionCount,
       passThresholdPercent: moduleForm.passThresholdPercent,
       videoMockFileName: moduleForm.videoMockFileName,
@@ -377,6 +383,8 @@ export function AdminControlCenter() {
         videoDurationSec: 360,
         questionCount: 10,
         passThresholdPercent: 80,
+        videoYoutubeUrl: "",
+        videoYoutubeId: null,
         videoMockFileName: null,
         videoMockFileSizeMb: null,
         description: "",
@@ -715,8 +723,20 @@ export function AdminControlCenter() {
                 <input type="number" className="rounded-xl border border-[var(--line)] px-3 py-2" placeholder="Видео сек" value={moduleForm.videoDurationSec} onChange={(e) => setModuleForm((prev) => ({ ...prev, videoDurationSec: Number(e.target.value) }))} />
                 <input type="number" className="rounded-xl border border-[var(--line)] px-3 py-2" placeholder="Въпроси" value={moduleForm.questionCount} onChange={(e) => setModuleForm((prev) => ({ ...prev, questionCount: Number(e.target.value) }))} />
               </div>
+              <input
+                className="w-full rounded-xl border border-[var(--line)] px-3 py-2"
+                placeholder="YouTube линк"
+                value={moduleForm.videoYoutubeUrl}
+                onChange={(e) =>
+                  setModuleForm((prev) => ({
+                    ...prev,
+                    videoYoutubeUrl: e.target.value,
+                    videoYoutubeId: extractYoutubeVideoId(e.target.value),
+                  }))
+                }
+              />
               <div className="rounded-xl border border-dashed border-[var(--line)] p-3">
-                <p className="text-xs font-semibold uppercase text-zinc-500">Mock видео файл</p>
+                <p className="text-xs font-semibold uppercase text-zinc-500">Видео източник</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <label className="inline-flex cursor-pointer items-center rounded-full border border-[var(--line)] px-3 py-1.5 text-sm font-semibold">
                     Избери видео (mock)
@@ -735,14 +755,30 @@ export function AdminControlCenter() {
                     Изчисти mock видео
                   </button>
                 </div>
-                {moduleForm.videoMockFileName ? (
+                {moduleYoutubePreviewId ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-black">
+                      <div className="aspect-video">
+                        <iframe
+                          className="h-full w-full"
+                          src={buildYoutubeEmbedUrl(moduleYoutubePreviewId)}
+                          title="YouTube preview"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-zinc-600">
+                      YouTube ID: {moduleYoutubePreviewId} ? {Math.ceil(moduleForm.videoDurationSec / 60)} мин
+                    </p>
+                  </div>
+                ) : moduleForm.videoMockFileName ? (
                   <div className="mt-3 rounded-xl bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
-                    Видео: {moduleForm.videoMockFileName} · {formatSizeMb(moduleForm.videoMockFileSizeMb)} MB ·{" "}
-                    {Math.ceil(moduleForm.videoDurationSec / 60)} мин
+                    Видео: {moduleForm.videoMockFileName} ? {formatSizeMb(moduleForm.videoMockFileSizeMb)} MB ? {Math.ceil(moduleForm.videoDurationSec / 60)} мин
                   </div>
                 ) : (
                   <p className="mt-3 text-xs text-zinc-500">
-                    Няма избран mock файл. Курсът ще ползва стандартен видео placeholder.
+                    Няма YouTube линк или mock файл. Курсът ще ползва стандартен видео placeholder.
                   </p>
                 )}
               </div>
@@ -768,14 +804,16 @@ export function AdminControlCenter() {
                 <div key={module.id} className="rounded-xl border border-[var(--line)] p-3">
                   <p className="font-semibold">{module.title}</p>
                   <p className="text-xs text-zinc-600">{module.category} · {module.durationMinutes} мин · {module.questionCount} въпроса · праг {module.passThresholdPercent}%</p>
-                  {module.videoMockFileName ? (
+                  {module.videoYoutubeId ? (
+                    <p className="text-xs text-zinc-500">YouTube видео: {module.videoYoutubeId}</p>
+                  ) : module.videoMockFileName ? (
                     <p className="text-xs text-zinc-500">
-                      Mock видео: {module.videoMockFileName} · {formatSizeMb(module.videoMockFileSizeMb)} MB
+                      Mock ?????: {module.videoMockFileName} ? {formatSizeMb(module.videoMockFileSizeMb)} MB
                     </p>
                   ) : null}
                   <p className="text-xs text-zinc-500">{module.isArchived ? "Архивиран" : "Активен"}</p>
                   <div className="mt-2 flex gap-2">
-                    <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1 text-sm" onClick={() => setModuleForm({ id: module.id, title: module.title, category: module.category, isMini: module.isMini, order: module.order, durationMinutes: module.durationMinutes, videoDurationSec: module.videoDurationSec, questionCount: module.questionCount, passThresholdPercent: module.passThresholdPercent, videoMockFileName: module.videoMockFileName, videoMockFileSizeMb: module.videoMockFileSizeMb, description: module.description, bulletPoints: module.bulletPoints.join("\n"), textSections: module.textSections.join("\n") })}>Редакция</button>
+                    <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1 text-sm" onClick={() => setModuleForm({ id: module.id, title: module.title, category: module.category, isMini: module.isMini, order: module.order, durationMinutes: module.durationMinutes, videoDurationSec: module.videoDurationSec, questionCount: module.questionCount, passThresholdPercent: module.passThresholdPercent, videoYoutubeUrl: module.videoYoutubeUrl ?? "", videoYoutubeId: module.videoYoutubeId ?? null, videoMockFileName: module.videoMockFileName, videoMockFileSizeMb: module.videoMockFileSizeMb, description: module.description, bulletPoints: module.bulletPoints.join("\n"), textSections: module.textSections.join("\n") })}>Редакция</button>
                     <button type="button" className="rounded-full border border-[var(--line)] px-3 py-1 text-sm" onClick={() => toggleArchive(`/api/admin/modules/${module.id}`, module.isArchived)}>{module.isArchived ? "Възстанови" : "Архивирай"}</button>
                   </div>
                 </div>
