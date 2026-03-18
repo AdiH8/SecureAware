@@ -41,6 +41,19 @@ function formatVideoSize(sizeMb: number | null): string {
   return sizeMb.toFixed(2);
 }
 
+const lessonSectionTitles = [
+  "Основна идея",
+  "Какво проверяваш първо",
+  "Как разпознаваш риска",
+  "Чести грешки",
+  "Правилен модел за реакция",
+  "Какво да запомниш",
+];
+
+function getLessonSectionTitle(index: number): string {
+  return lessonSectionTitles[index] ?? `Ключов акцент ${index + 1}`;
+}
+
 export function TrainingFlow({ module, initialProgress, questions }: TrainingFlowProps) {
   const router = useRouter();
   const [progress, setProgress] = useState(initialProgress);
@@ -165,7 +178,7 @@ export function TrainingFlow({ module, initialProgress, questions }: TrainingFlo
           <p className="mt-1 text-sm text-zinc-600">
             Достатъчно е да маркираш видео или текстовия вариант, за да отключиш теста.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-4 space-y-4">
             <div className="rounded-2xl border border-[var(--line)] p-4">
               <p className="text-xs font-semibold uppercase text-zinc-500">Видео вариант</p>
               <div className="mt-3 rounded-xl bg-zinc-900 px-4 py-10 text-center text-white">
@@ -193,15 +206,36 @@ export function TrainingFlow({ module, initialProgress, questions }: TrainingFlo
 
             <div className="rounded-2xl border border-[var(--line)] p-4">
               <p className="text-xs font-semibold uppercase text-zinc-500">Текстов вариант</p>
-              <div className="mt-3 space-y-3">
-                {module.textSections.map((section, index) => (
-                  <article key={`${module.id}_section_${index + 1}`} className="rounded-xl border border-[var(--line)] bg-zinc-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Секция {index + 1}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-700">{section}</p>
-                  </article>
-                ))}
+              <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
+                <div className="border-b border-[var(--line)] bg-zinc-50/80 px-5 py-4">
+                  <h3 className="text-lg font-semibold text-[var(--brand-ink)]">Текстов материал</h3>
+                  <p className="mt-1 text-sm leading-6 text-zinc-600">
+                    Прочети урока последователно. Материалът е подреден като кратко практическо ръководство.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-[var(--line)]">
+                  {module.textSections.map((section, index) => (
+                    <article key={`${module.id}_section_${index + 1}`} className="px-5 py-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand)]">
+                        {getLessonSectionTitle(index)}
+                      </p>
+
+                      {(index === 1 || index === 3) && (
+                        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                          <strong>{index === 1 ? "Важно:" : "Запомни:"}</strong>{" "}
+                          {index === 1
+                            ? "Преди реакция първо валидирай контекста, подателя и канала."
+                            : "При съмнение спираш действието, проверяваш и едва тогава продължаваш."}
+                        </div>
+                      )}
+
+                      <p className="mt-4 whitespace-pre-line text-[15px] leading-8 text-zinc-700">
+                        {section}
+                      </p>
+                    </article>
+                  ))}
+                </div>
               </div>
               <button
                 className="mt-4 rounded-full border border-[var(--line)] px-4 py-2 text-sm font-semibold disabled:opacity-60"
