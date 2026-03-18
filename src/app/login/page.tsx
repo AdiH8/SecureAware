@@ -18,15 +18,17 @@ export default async function LoginPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 md:flex-row md:items-start">
         <section className="sa-card sa-gradient flex-1 rounded-3xl p-7 text-white">
           <p className="text-sm font-semibold uppercase tracking-[0.18em]">SecureAware</p>
-          <h1 className="mt-4 text-4xl font-bold leading-tight">Вход за демонстрационна среда</h1>
+          <h1 className="mt-4 text-4xl font-bold leading-tight">
+            Вход за демонстрационна среда
+          </h1>
           <p className="mt-4 text-white/90">
-            Използвай ролите за да покажеш различни потребителски потоци: служител, мениджър и
-            администратор.
+            Използвай различните роли, за да покажеш ключовите потоци в платформата:
+            служител, мениджър и администратор.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-white/90">
-            <li>Служител: обучение, тест, симулация и адаптивни задания</li>
-            <li>Мениджър: табло с ключови показатели, риск по отдели и приоритети</li>
-            <li>Админ: управление на модули, сценарии и правила</li>
+            <li>Служител: обучение, тест и ясен прогрес по назначените курсове</li>
+            <li>Мениджър: кампании, завършени обучения, ретейкове и статус по отдели</li>
+            <li>Админ: управление на потребители, курсове, тестове и phishing кампании</li>
           </ul>
           <Link className="mt-6 inline-block text-sm font-semibold underline" href="/">
             Назад към началната страница

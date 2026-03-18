@@ -2,7 +2,7 @@
 
 import { AppShell } from "@/components/app-shell";
 import { requireSession } from "@/lib/auth";
-import { getEmployeeLearningState, getUserByIdResolved } from "@/lib/data/store";
+import { getEmployeeLearningStateResolved, getUserByIdResolved } from "@/lib/data/store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export default async function EmployeeHomePage() {
     return null;
   }
 
-  const learningState = getEmployeeLearningState(user.id);
+  const learningState = await getEmployeeLearningStateResolved(user.id);
 
   return (
     <AppShell role={session.role} name={user.name}>

@@ -48,6 +48,13 @@ where id like 'rule_seed_%';
 delete from phishing_campaigns
 where id like 'phc_seed_%';
 
+delete from phishing_templates
+where id in (
+  'tpl_courier_invoice',
+  'tpl_password_reset',
+  'tpl_bonus_update'
+);
+
 delete from modules
 where id in (
   'mod_phishing_core',
@@ -78,6 +85,33 @@ where id in (
   'usr_emp_11',
   'usr_emp_12'
 );
+
+insert into phishing_templates (id, name, subject, sender_name, content, updated_at)
+values
+  (
+    'tpl_courier_invoice',
+    'Куриер неплатена доставка',
+    'Спешно: неплатена доставка',
+    'Куриер Поддръжка',
+    'Здравейте, имате неплатена доставка. Потвърдете плащането от линка в рамките на 2 часа.',
+    '2026-03-09T08:00:00Z'
+  ),
+  (
+    'tpl_password_reset',
+    'Ресет на парола',
+    'Неуспешен вход, потвърдете профила',
+    'IT Поддръжка',
+    'Засечен е неуспешен вход. Потвърдете профила си чрез прикачения формуляр за сигурност.',
+    '2026-03-09T08:00:00Z'
+  ),
+  (
+    'tpl_bonus_update',
+    'HR бонус актуализация',
+    'Актуализация на бонус политика',
+    'HR Екип',
+    'Прегледайте новите условия за бонуси чрез външния портал и потвърдете служебния си достъп.',
+    '2026-03-09T08:00:00Z'
+  );
 
 insert into profiles (id, organization_id, department_id, name, email, role, is_archived, archived_at, updated_at)
 values

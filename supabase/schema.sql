@@ -174,6 +174,15 @@ create table if not exists assignment_rules (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists phishing_templates (
+  id text primary key,
+  name text not null,
+  subject text not null,
+  sender_name text not null,
+  content text not null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists phishing_campaigns (
   id text primary key,
   organization_id text not null references organizations(id) on delete cascade,

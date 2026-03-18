@@ -77,13 +77,14 @@ function riskBandFromScore(score: number): "HIGH" | "MEDIUM" | "SECURE" {
   return "SECURE";
 }
 
+
+
 function scenarioCategoryLabel(category: "PHISHING" | "URL" | "SOCIAL_ENGINEERING" | "MALWARE"): string {
   if (category === "PHISHING") return "фишинг";
   if (category === "URL") return "URL рискове";
   if (category === "SOCIAL_ENGINEERING") return "социално инженерство";
   return "зловреден софтуер";
 }
-
 function safePercent(part: number, total: number): number {
   if (!total) return 0;
   return Math.round((part / total) * 100);
@@ -101,6 +102,8 @@ function nextId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+
+
 function sanitizeModuleTextSections(textSections: string[]): string[] {
   const sections = textSections.map((section) => section.trim());
   if (sections.length < MODULE_TEXT_SECTIONS_MIN_COUNT) {
@@ -114,7 +117,6 @@ function sanitizeModuleTextSections(textSections: string[]): string[] {
   }
   return sections;
 }
-
 async function withSupabaseWrite(run: (client: NonNullable<ReturnType<typeof getSupabaseAdmin>>) => Promise<void>) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
@@ -162,6 +164,8 @@ function getLatestAttemptByUser(userId: string): Attempt | undefined {
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
 }
 
+
+
 function getOrCreateProgress(userId: string, moduleId: string): LearningProgress {
   const state = ensureState();
   const existing = state.learningProgress.find(
@@ -185,6 +189,25 @@ function getOrCreateProgress(userId: string, moduleId: string): LearningProgress
   return created;
 }
 
+function findLearningProgressInCollection(
+  collection: LearningProgress[],
+  userId: string,
+  moduleId: string
+): LearningProgress | undefined {
+  return collection.find((progress) => progress.userId === userId && progress.moduleId === moduleId);
+}
+
+function findModuleCompletionInCollection(
+  collection: ModuleCompletion[],
+  userId: string,
+  moduleId: string
+): ModuleCompletion | undefined {
+  return collection.find(
+    (completion) =>
+      completion.userId === userId && completion.moduleId === moduleId && isActive(completion)
+  );
+}
+
 function canAccessModule(userId: string, module: TrainingModule): boolean {
   if (!isActive(module)) {
     return false;
@@ -198,12 +221,16 @@ function canAccessModule(userId: string, module: TrainingModule): boolean {
   );
 }
 
-function mapLearningModule(userId: string, module: TrainingModule): EmployeeLearningModule {
-  const state = ensureState();
-  const progress = getOrCreateProgress(userId, module.id);
-  const completion = state.moduleCompletions.find(
-    (item) => item.userId === userId && item.moduleId === module.id && isActive(item)
-  );
+function mapLearningModuleResolved(
+  userId: string,
+  module: TrainingModule,
+  learningProgress: LearningProgress[],
+  moduleCompletions: ModuleCompletion[]
+): EmployeeLearningModule {
+  const progress = findLearningProgressInCollection(learningProgress, userId, module.id)
+    ?? getOrCreateProgress(userId, module.id);
+  const completion = findModuleCompletionInCollection(moduleCompletions, userId, module.id);
+
   return {
     moduleId: module.id,
     title: module.title,
@@ -213,7 +240,6 @@ function mapLearningModule(userId: string, module: TrainingModule): EmployeeLear
     lastScorePercent: progress.lastScorePercent,
   };
 }
-
 export function getLatestAttemptForUser(userId: string): Attempt | undefined {
   return getLatestAttemptByUser(userId);
 }
@@ -344,6 +370,8 @@ async function listLearningProgressResolved(): Promise<LearningProgress[]> {
   return mapped;
 }
 
+
+
 async function listModuleCompletionsResolved(): Promise<ModuleCompletion[]> {
   const state = ensureState();
   const supabase = getSupabaseAdmin();
@@ -363,6 +391,38 @@ async function listModuleCompletionsResolved(): Promise<ModuleCompletion[]> {
   return mapped;
 }
 
+function buildEmployeeLearningState(params: {
+  userId: string;
+  modules: TrainingModule[];
+  learningProgress: LearningProgress[];
+  moduleCompletions: ModuleCompletion[];
+}): EmployeeLearningState {
+  const mapped = params.modules.map((module) =>
+    mapLearningModuleResolved(
+      params.userId,
+      module,
+      params.learningProgress,
+      params.moduleCompletions
+    )
+  );
+  const progress = params.modules.map(
+    (module) =>
+      findLearningProgressInCollection(params.learningProgress, params.userId, module.id)
+      ?? getOrCreateProgress(params.userId, module.id)
+  );
+  const completedModules = mapped.filter((module) => module.status === "COMPLETED");
+  const notCompleted = mapped.filter((module) => module.status !== "COMPLETED");
+  const nextModule = notCompleted.length ? notCompleted[0] : null;
+  const remainingModules = nextModule ? notCompleted.slice(1) : [];
+
+  return {
+    nextModule,
+    remainingModules,
+    completedModules,
+    modules: mapped,
+    progress,
+  };
+}
 export function listDemoUsersByRole(role?: Profile["role"]): Profile[] {
   const state = ensureState();
   const users = state.profiles.filter(isActive);
@@ -514,6 +574,8 @@ export function markAssignmentCompleted(assignmentId: string): Assignment | null
   return assignment;
 }
 
+
+
 export function getLearningProgressForModule(
   userId: string,
   moduleId: string
@@ -521,23 +583,40 @@ export function getLearningProgressForModule(
   return getOrCreateProgress(userId, moduleId);
 }
 
-export function getEmployeeLearningState(userId: string): EmployeeLearningState {
-  const modules = listModulesForEmployee(userId);
-  const mapped = modules.map((module) => mapLearningModule(userId, module));
-  const progress = modules.map((module) => getOrCreateProgress(userId, module.id));
-  const completedModules = mapped.filter((module) => module.status === "COMPLETED");
-  const notCompleted = mapped.filter((module) => module.status !== "COMPLETED");
-  const nextModule = notCompleted.length ? notCompleted[0] : null;
-  const remainingModules = nextModule ? notCompleted.slice(1) : [];
-  return {
-    nextModule,
-    remainingModules,
-    completedModules,
-    modules: mapped,
-    progress,
-  };
+export async function getLearningProgressForModuleResolved(
+  userId: string,
+  moduleId: string
+): Promise<LearningProgress> {
+  const learningProgress = await listLearningProgressResolved();
+  return findLearningProgressInCollection(learningProgress, userId, moduleId)
+    ?? getOrCreateProgress(userId, moduleId);
 }
 
+export function getEmployeeLearningState(userId: string): EmployeeLearningState {
+  const modules = listModulesForEmployee(userId);
+  const state = ensureState();
+  return buildEmployeeLearningState({
+    userId,
+    modules,
+    learningProgress: state.learningProgress,
+    moduleCompletions: state.moduleCompletions,
+  });
+}
+
+export async function getEmployeeLearningStateResolved(userId: string): Promise<EmployeeLearningState> {
+  const modules = listModulesForEmployee(userId);
+  const [learningProgress, moduleCompletions] = await Promise.all([
+    listLearningProgressResolved(),
+    listModuleCompletionsResolved(),
+  ]);
+
+  return buildEmployeeLearningState({
+    userId,
+    modules,
+    learningProgress,
+    moduleCompletions,
+  });
+}
 export function markLearningContentComplete(params: {
   userId: string;
   moduleId: string;
@@ -578,14 +657,16 @@ export function getActiveTestSession(userId: string, moduleId: string) {
   );
 }
 
+
+
 export function startTestSession(params: { userId: string; moduleId: string }) {
   const state = ensureState();
   const trainingModule = getModuleById(params.moduleId);
   if (!trainingModule) {
-    throw new Error("Модулът не е намерен");
+    throw new Error("Модулът не е намерен.");
   }
   if (!canAccessModule(params.userId, trainingModule)) {
-    throw new Error("Модулът не е назначен за този служител");
+    throw new Error("Модулът не е назначен за този служител.");
   }
 
   const progress = getOrCreateProgress(params.userId, trainingModule.id);
@@ -601,7 +682,7 @@ export function startTestSession(params: { userId: string; moduleId: string }) {
   const activeQuestionIds = listTestQuestionsForModule(trainingModule.id).map((question) => question.id);
   const totalQuestions = Math.min(trainingModule.questionCount, activeQuestionIds.length);
   if (totalQuestions < 1) {
-    throw new Error("Няма активни въпроси за този модул");
+    throw new Error("Няма активни въпроси за този модул.");
   }
 
   const session = {
@@ -631,24 +712,24 @@ export function answerTestQuestion(params: {
   const state = ensureState();
   const session = state.testSessions.find((item) => item.id === params.sessionId);
   if (!session || session.userId !== params.userId) {
-    throw new Error("Сесията не е намерена");
+    throw new Error("Сесията не е намерена.");
   }
   if (session.status !== "IN_PROGRESS") {
-    throw new Error("Сесията не е активна");
+    throw new Error("Сесията не е активна.");
   }
   const expectedQuestionId = session.questionIds[session.currentIndex];
   if (expectedQuestionId !== params.questionId) {
-    throw new Error("Невалиден ред на въпросите");
+    throw new Error("Невалиден ред на въпросите.");
   }
 
   const options = state.testOptions.filter((option) => option.questionId === params.questionId);
   const selected = options.find((option) => option.id === params.selectedOptionId);
   if (!selected) {
-    throw new Error("Избраният отговор не е намерен");
+    throw new Error("Избраният отговор не е намерен.");
   }
   const question = state.testQuestions.find((item) => item.id === params.questionId);
   if (!question) {
-    throw new Error("Въпросът не е намерен");
+    throw new Error("Въпросът не е намерен.");
   }
 
   const correct = isSelectedAnswerCorrect(options, selected.id);
@@ -673,13 +754,13 @@ export function finishTestSession(params: { userId: string; sessionId: string })
   const state = ensureState();
   const session = state.testSessions.find((item) => item.id === params.sessionId);
   if (!session || session.userId !== params.userId) {
-    throw new Error("Сесията не е намерена");
+    throw new Error("Сесията не е намерена.");
   }
   if (session.status !== "IN_PROGRESS") {
-    throw new Error("Сесията вече е приключена");
+    throw new Error("Сесията вече е приключена.");
   }
   if (session.answers.length < session.totalQuestions) {
-    throw new Error("Отговорете на всички въпроси преди финализиране");
+    throw new Error("Отговорете на всички въпроси преди финализиране.");
   }
 
   const correctCount = session.answers.filter((answer) => answer.correct).length;
@@ -742,7 +823,6 @@ export function finishTestSession(params: { userId: string; sessionId: string })
     total: session.totalQuestions,
   };
 }
-
 export async function recordAttempt(params: {
   actorUserId: string;
   input: AttemptInput;
@@ -1729,11 +1809,59 @@ function applyCampaignStart(params: {
   return params.campaign;
 }
 
+
+function upsertPhishingTemplateInState(template: PhishingTemplate): PhishingTemplate {
+  const state = ensureState();
+  const existingIndex = state.phishingTemplates.findIndex((item) => item.id === template.id);
+  if (existingIndex >= 0) {
+    state.phishingTemplates[existingIndex] = template;
+  } else {
+    state.phishingTemplates.push(template);
+  }
+  return template;
+}
+
+function mapPhishingTemplateRow(row: {
+  id: string;
+  name: string;
+  subject: string;
+  sender_name: string;
+  content: string;
+}): PhishingTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    subject: row.subject,
+    senderName: row.sender_name,
+    content: row.content,
+  };
+}
+
 export function listPhishingTemplates(): PhishingTemplate[] {
   const state = ensureState();
   return state.phishingTemplates;
 }
 
+export async function listPhishingTemplatesResolved(): Promise<PhishingTemplate[]> {
+  const state = ensureState();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return state.phishingTemplates;
+  }
+
+  const { data, error } = await supabase
+    .from("phishing_templates")
+    .select("id, name, subject, sender_name, content")
+    .order("name", { ascending: true });
+
+  if (error || !data) {
+    return state.phishingTemplates;
+  }
+
+  const templates = data.map(mapPhishingTemplateRow);
+  templates.forEach(upsertPhishingTemplateInState);
+  return templates;
+}
 export async function listAdminPhishingCampaigns(): Promise<PhishingCampaign[]> {
   const state = ensureState();
   const supabase = getSupabaseAdmin();
@@ -1761,6 +1889,8 @@ export async function listAdminPhishingCampaigns(): Promise<PhishingCampaign[]> 
   return campaigns;
 }
 
+
+
 export async function createAdminPhishingCampaign(
   input: AdminPhishingCampaignInput
 ): Promise<PhishingCampaign> {
@@ -1768,7 +1898,8 @@ export async function createAdminPhishingCampaign(
   if (!state.departments.some((department) => department.id === input.departmentId)) {
     throw new Error("Невалиден отдел.");
   }
-  if (!state.phishingTemplates.some((template) => template.id === input.templateId)) {
+  const templates = await listPhishingTemplatesResolved();
+  if (!templates.some((template) => template.id === input.templateId)) {
     throw new Error("Невалиден шаблон.");
   }
 
@@ -1844,8 +1975,11 @@ export async function updateAdminPhishingCampaign(
   if (patch.departmentId && !state.departments.some((department) => department.id === patch.departmentId)) {
     throw new Error("Невалиден отдел.");
   }
-  if (patch.templateId && !state.phishingTemplates.some((template) => template.id === patch.templateId)) {
-    throw new Error("Невалиден шаблон.");
+  if (patch.templateId) {
+    const templates = await listPhishingTemplatesResolved();
+    if (!templates.some((template) => template.id === patch.templateId)) {
+      throw new Error("Невалиден шаблон.");
+    }
   }
 
   if (patch.name !== undefined) campaign.name = patch.name.trim();
@@ -1919,10 +2053,10 @@ export async function startAdminPhishingCampaign(campaignId: string): Promise<Ph
   const state = ensureState();
   const campaign = state.phishingCampaigns.find((item) => item.id === campaignId);
   if (!campaign) {
-    throw new Error("?????????? ?? ? ????????.");
+    throw new Error("Кампанията не е намерена.");
   }
   if (campaign.isArchived || campaign.status === "ARCHIVED") {
-    throw new Error("?????????? ???????? ?? ???? ?? ???? ??????????.");
+    throw new Error("Архивирана кампания не може да бъде стартирана.");
   }
 
   const recipients = await listActiveEmployeesByDepartmentResolved(campaign.departmentId);
@@ -1993,7 +2127,6 @@ export async function startAdminPhishingCampaign(campaignId: string): Promise<Ph
 
   return campaign;
 }
-
 export function listAdminUsers(): Profile[] {
   const state = ensureState();
   return state.profiles.filter((profile) => profile.role !== "ADMIN");

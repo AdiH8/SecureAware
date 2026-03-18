@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { TrainingFlow } from "@/components/training-flow";
 import { requireSession } from "@/lib/auth";
 import {
-  getLearningProgressForModule,
+  getLearningProgressForModuleResolved,
   getModuleById,
   getUserByIdResolved,
   listModulesForEmployee,
@@ -34,7 +34,7 @@ export default async function EmployeeTrainingPage({
     notFound();
   }
 
-  const progress = getLearningProgressForModule(user.id, trainingModule.id);
+  const progress = await getLearningProgressForModuleResolved(user.id, trainingModule.id);
   const questions = listTestQuestionsForModule(trainingModule.id).slice(0, trainingModule.questionCount);
 
   return (

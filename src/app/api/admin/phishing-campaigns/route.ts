@@ -5,7 +5,7 @@ import { apiError, requireAdminApi } from "@/lib/admin-api";
 import {
   createAdminPhishingCampaign,
   listAdminPhishingCampaigns,
-  listPhishingTemplates,
+  listPhishingTemplatesResolved,
   startAdminPhishingCampaign,
 } from "@/lib/data/store";
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   const [campaigns, templates] = await Promise.all([
     listAdminPhishingCampaigns(),
-    Promise.resolve(listPhishingTemplates()),
+    listPhishingTemplatesResolved(),
   ]);
 
   return NextResponse.json({ campaigns, templates });

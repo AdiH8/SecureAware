@@ -33,7 +33,7 @@ export function LoginForm({
     <div className="sa-card w-full max-w-xl p-6">
       <h2 className="text-2xl font-bold">Вход в демо профил</h2>
       <p className="mt-1 text-sm text-zinc-600">
-        Изберете роля и потребител, за да отворите съответния продуктови поток.
+        Изберете роля и потребител, за да отворите съответния продуктов поток.
       </p>
 
       <div className="mt-4 flex gap-2">
@@ -74,7 +74,8 @@ export function LoginForm({
       </label>
       {roleUsers.length === 0 ? (
         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Няма активни потребители за избраната роля. Провери данните в Supabase таблицата `profiles`.
+          Няма активни потребители за избраната роля. Провери данните в Supabase таблицата
+          `profiles`.
         </p>
       ) : null}
 
@@ -98,7 +99,7 @@ export function LoginForm({
           const data = (await res.json()) as { error?: string; redirect?: string };
           if (!res.ok) {
             setPending(false);
-            setError(data.error ?? "Проблем при вход");
+            setError(data.error ?? "Проблем при вход.");
             return;
           }
           router.push(data.redirect ?? "/");
