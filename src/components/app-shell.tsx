@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { LogoutButton } from "@/components/logout-button";
 import { uiCopy } from "@/content/bg";
 import { Role } from "@/lib/types";
@@ -29,6 +30,12 @@ function linksForRole(role: Role): Array<{ href: string; label: string }> {
   ];
 }
 
+function labelForRole(role: Role) {
+  if (role === "EMPLOYEE") return "Служител";
+  if (role === "MANAGER") return "Мениджър";
+  return "Администратор";
+}
+
 export function AppShell({ role, name, children }: AppShellProps) {
   const links = linksForRole(role);
   return (
@@ -36,11 +43,9 @@ export function AppShell({ role, name, children }: AppShellProps) {
       <header className="border-b border-[var(--line)] bg-white/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="sa-gradient rounded-xl px-3 py-2 text-sm font-bold text-white">
-              {uiCopy.appName}
-            </div>
+            <BrandLogo className="h-auto w-[152px]" />
             <div>
-              <p className="text-sm text-[var(--brand)]">{role}</p>
+              <p className="text-sm text-[var(--brand)]">{labelForRole(role)}</p>
               <p className="font-semibold">{name}</p>
             </div>
           </div>

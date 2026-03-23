@@ -1,0 +1,14 @@
+<svg width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sa_mark_bg" x1="12" y1="12" x2="76" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E"/>
+      <stop offset="0.62" stop-color="#0A4E49"/>
+      <stop offset="1" stop-color="#8C5B14"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="72" height="72" rx="22" fill="url(#sa_mark_bg)"/>
+  <path d="M23 30L44 22L65 30V42.1C65 51.2 56.8 58.6 44 62C31.2 58.6 23 51.2 23 42.1V30Z" fill="white" fill-opacity="0.98"/>
+  <path d="M33.4 41.5C36.6 37.2 40.4 35 44 35C47.6 35 51.4 37.2 54.6 41.5C51.4 45.8 47.6 48 44 48C40.4 48 36.6 45.8 33.4 41.5Z" fill="#0F766E"/>
+  <circle cx="44" cy="41.5" r="3.4" fill="white"/>
+  <path d="M43.8 51.4L39.2 46.9L41.8 44.3L43.8 46.3L49.9 40.2L52.5 42.8L43.8 51.4Z" fill="#0F766E"/>
+</svg>

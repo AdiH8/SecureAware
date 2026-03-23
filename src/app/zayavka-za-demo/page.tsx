@@ -1,19 +1,20 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { DemoRequestForm } from "@/components/demo-request-form";
 
 export default function DemoRequestPage() {
   return (
     <div className="min-h-screen">
-      <section className="mx-auto w-full max-w-4xl px-4 pt-12 pb-6">
+      <section className="mx-auto w-full max-w-4xl px-4 pb-6 pt-12">
         <div className="sa-card sa-gradient rounded-3xl p-7 text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em]">SecureAware</p>
+          <BrandLogo className="h-auto w-[168px]" />
           <h1 className="mt-3 text-4xl font-bold">Заявка за бизнес демо</h1>
           <p className="mt-2 text-sm text-white/90">
             Тази страница е част от презентационния поток и симулира реална бизнес заявка.
           </p>
           <Link className="mt-4 inline-block text-sm font-semibold underline" href="/">
-            Назад към начална страница
+            Назад към началната страница
           </Link>
         </div>
       </section>

@@ -1,5 +1,6 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { LoginForm } from "@/components/login-form";
 import { listDemoUsersByRoleResolved } from "@/lib/data/store";
 
@@ -17,10 +18,8 @@ export default async function LoginPage({
     <div className="min-h-screen">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 md:flex-row md:items-start">
         <section className="sa-card sa-gradient flex-1 rounded-3xl p-7 text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em]">SecureAware</p>
-          <h1 className="mt-4 text-4xl font-bold leading-tight">
-            Вход за демонстрационна среда
-          </h1>
+          <BrandLogo priority className="h-auto w-[176px]" />
+          <h1 className="mt-4 text-4xl font-bold leading-tight">Вход за демонстрационна среда</h1>
           <p className="mt-4 text-white/90">
             Използвай различните роли, за да покажеш ключовите потоци в платформата:
             служител, мениджър и администратор.

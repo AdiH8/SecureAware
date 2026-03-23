@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { landingContent } from "@/content/bg";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,7 @@ export default function HomePage() {
     <div className="sa-landing min-h-screen">
       <header className="sa-top-nav sticky top-0 z-40 border-b border-white/70 bg-[var(--background)]/85 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="sa-gradient rounded-xl px-2.5 py-1 text-xs font-bold text-white">SA</span>
-            <span className="text-sm font-bold text-[var(--brand-ink)]">SecureAware</span>
-          </Link>
+          <BrandLogo priority className="h-auto w-[170px]" />
 
           <nav className="hidden items-center gap-5 lg:flex">
             {navItems.map((item) => (
